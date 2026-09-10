@@ -1,0 +1,11 @@
+{
+    "name": "Oralyn",
+    "short_name": "Oralyn",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#F7F9FA",
+    "theme_color": "#102A43",
+    "description": "AI-assisted oral screening UI prototype.",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false
+}

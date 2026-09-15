@@ -1,0 +1,125 @@
+import 'package:flutter/material.dart';
+
+import '../../data/mock/mock_data.dart';
+import '../../models/doctor.dart';
+import '../../models/screening_result.dart';
+import '../../views/screens/auth/auth_screens.dart';
+import '../../views/screens/doctors/doctor_screens.dart';
+import '../../views/screens/education/education_screen.dart';
+import '../../views/screens/history/history_screens.dart';
+import '../../views/screens/home/main_shell.dart';
+import '../../views/screens/onboarding/onboarding_screens.dart';
+import '../../views/screens/profile/profile_screens.dart';
+import '../../views/screens/referral/referral_screen.dart';
+import '../../views/screens/result/result_screens.dart';
+import '../../views/screens/screening/screening_flow.dart';
+
+abstract final class AppRoutes {
+  static const splash = '/';
+  static const onboarding = '/onboarding';
+  static const login = '/login';
+  static const register = '/register';
+  static const forgotPassword = '/forgot-password';
+  static const home = '/home';
+  static const preparation = '/screening/preparation';
+  static const capture = '/screening/capture';
+  static const preview = '/screening/preview';
+  static const quality = '/screening/quality';
+  static const analysis = '/screening/analysis';
+  static const result = '/screening/result';
+  static const explainability = '/screening/explainability';
+  static const referral = '/referral';
+  static const doctorSearch = '/doctors/search';
+  static const doctorDetail = '/doctors/detail';
+  static const map = '/doctors/map';
+  static const history = '/history';
+  static const historyDetail = '/history/detail';
+  static const education = '/education';
+  static const privacy = '/privacy';
+  static const about = '/about';
+
+  static Route<dynamic> onGenerateRoute(RouteSettings settings) {
+    final page = switch (settings.name) {
+      splash => const SplashScreen(),
+      onboarding => const OnboardingScreen(),
+      login => const LoginScreen(),
+      register => const RegisterScreen(),
+      forgotPassword => const ForgotPasswordScreen(),
+      home => const MainShell(),
+      preparation => const ScreeningPreparationScreen(),
+      capture => const CaptureScreen(),
+      preview => ImagePreviewScreen(
+          args: settings.arguments is PhotoFlowArgs
+              ? settings.arguments! as PhotoFlowArgs
+              : const PhotoFlowArgs(),
+        ),
+      quality => QualityCheckScreen(
+          args: settings.arguments is PhotoFlowArgs
+              ? settings.arguments! as PhotoFlowArgs
+              : const PhotoFlowArgs(),
+        ),
+      analysis => const AnalysisScreen(),
+      result => ResultScreen(
+          result: settings.arguments is ScreeningResult
+              ? settings.arguments! as ScreeningResult
+              : MockData.results[MockData.activeScenarioIndex],
+        ),
+      explainability => ExplainabilityScreen(
+          result: settings.arguments is ScreeningResult
+              ? settings.arguments! as ScreeningResult
+              : MockData.results[MockData.activeScenarioIndex],
+        ),
+      referral => ReferralScreen(
+          result: settings.arguments is ScreeningResult
+              ? settings.arguments! as ScreeningResult
+              : MockData.results[MockData.activeScenarioIndex],
+        ),
+      doctorSearch => const DoctorSearchScreen(),
+      doctorDetail => DoctorDetailScreen(
+          doctor: settings.arguments is Doctor
+              ? settings.arguments! as Doctor
+              : MockData.doctors.first,
+        ),
+      map => const MapScreen(),
+      history => const HistoryScreen(standalone: true),
+      historyDetail => HistoryDetailScreen(
+          result: settings.arguments is ScreeningResult
+              ? settings.arguments! as ScreeningResult
+              : MockData.results.first,
+        ),
+      education => const EducationScreen(),
+      privacy => const PrivacyScreen(),
+      about => const AboutScreen(),
+      _ => const _NotFoundScreen(),
+    };
+    return PageRouteBuilder<dynamic>(
+      settings: settings,
+      transitionDuration: const Duration(milliseconds: 220),
+      reverseTransitionDuration: const Duration(milliseconds: 180),
+      pageBuilder: (_, animation, __) => page,
+      transitionsBuilder: (_, animation, __, child) {
+        final offset = Tween(
+          begin: const Offset(.035, 0),
+          end: Offset.zero,
+        ).chain(CurveTween(curve: Curves.easeOutCubic));
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: animation.drive(offset),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _NotFoundScreen extends StatelessWidget {
+  const _NotFoundScreen();
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(),
+        body: const Center(child: Text('This page is not available.')),
+      );
+}

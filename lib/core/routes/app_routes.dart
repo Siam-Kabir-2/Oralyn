@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/mock/mock_data.dart';
 import '../../models/doctor.dart';
 import '../../models/screening_result.dart';
+import '../../models/screening_session.dart';
 import '../../views/screens/auth/auth_screens.dart';
 import '../../views/screens/doctors/doctor_screens.dart';
 import '../../views/screens/education/education_screen.dart';
@@ -49,20 +50,28 @@ abstract final class AppRoutes {
       preparation => const ScreeningPreparationScreen(),
       capture => const CaptureScreen(),
       preview => ImagePreviewScreen(
-          args: settings.arguments is PhotoFlowArgs
-              ? settings.arguments! as PhotoFlowArgs
-              : const PhotoFlowArgs(),
+          photo: settings.arguments is ScreeningPhoto
+              ? settings.arguments! as ScreeningPhoto
+              : null,
         ),
       quality => QualityCheckScreen(
-          args: settings.arguments is PhotoFlowArgs
-              ? settings.arguments! as PhotoFlowArgs
-              : const PhotoFlowArgs(),
+          photo: settings.arguments is ScreeningPhoto
+              ? settings.arguments! as ScreeningPhoto
+              : null,
         ),
-      analysis => const AnalysisScreen(),
+      analysis => AnalysisScreen(
+          photo: settings.arguments is ScreeningPhoto
+              ? settings.arguments! as ScreeningPhoto
+              : null,
+        ),
       result => ResultScreen(
-          result: settings.arguments is ScreeningResult
-              ? settings.arguments! as ScreeningResult
-              : MockData.results[MockData.activeScenarioIndex],
+          outcome: settings.arguments is ScreeningOutcome
+              ? settings.arguments! as ScreeningOutcome
+              : ScreeningOutcome(
+                  result: settings.arguments is ScreeningResult
+                      ? settings.arguments! as ScreeningResult
+                      : MockData.results[MockData.activeScenarioIndex],
+                ),
         ),
       explainability => ExplainabilityScreen(
           result: settings.arguments is ScreeningResult

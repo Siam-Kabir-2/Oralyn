@@ -4,11 +4,12 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/screening_result.dart';
+import '../../../models/screening_session.dart';
 import '../../widgets/common/app_components.dart';
 
 class ResultScreen extends StatefulWidget {
-  const ResultScreen({super.key, required this.result});
-  final ScreeningResult result;
+  const ResultScreen({super.key, required this.outcome});
+  final ScreeningOutcome outcome;
 
   @override
   State<ResultScreen> createState() => _ResultScreenState();
@@ -19,7 +20,7 @@ class _ResultScreenState extends State<ResultScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final result = widget.result;
+    final result = widget.outcome.result;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Screening Result'),
@@ -37,7 +38,15 @@ class _ResultScreenState extends State<ResultScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(22, 6, 22, 34),
           children: [
+            const _PrototypeBanner(),
+            const SizedBox(height: 14),
             _StatusPanel(result: result),
+            if (widget.outcome.photo != null) ...[
+              const SizedBox(height: 24),
+              const SectionHeader(title: 'Photo reviewed'),
+              const SizedBox(height: 10),
+              _ReviewedPhoto(photo: widget.outcome.photo!),
+            ],
             const SizedBox(height: 26),
             const SectionHeader(title: 'AI screening category'),
             const SizedBox(height: 10),
@@ -115,6 +124,8 @@ class _ResultScreenState extends State<ResultScreen> {
             const SizedBox(height: 24),
             _NextStep(result: result),
             const SizedBox(height: 22),
+            _Recommendations(result: result),
+            const SizedBox(height: 22),
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -146,6 +157,202 @@ class _ResultScreenState extends State<ResultScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PrototypeBanner extends StatelessWidget {
+  const _PrototypeBanner();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF7E8),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFF0D9A9)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.science_outlined, color: AppColors.warning, size: 19),
+            SizedBox(width: 9),
+            Expanded(
+              child: Text(
+                'Simulated result using sample data — not an analysis of your photo.',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+class _ReviewedPhoto extends StatelessWidget {
+  const _ReviewedPhoto({required this.photo});
+
+  final ScreeningPhoto photo;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Stack(
+          children: [
+            Image.memory(
+              photo.bytes,
+              width: double.infinity,
+              height: 230,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              semanticLabel: 'Photo used for this screening demonstration',
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: .58),
+                    ],
+                    stops: const [.5, 1],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 13,
+              right: 13,
+              bottom: 12,
+              child: Row(
+                children: [
+                  const Icon(Icons.lock_outline_rounded,
+                      color: Colors.white, size: 17),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      photo.fromCamera
+                          ? 'Captured in this session • not uploaded'
+                          : 'Selected in this session • not uploaded',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+class _Recommendations extends StatelessWidget {
+  const _Recommendations({required this.result});
+
+  final ScreeningResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final urgent = result.risk == RiskLevel.promptSpecialistReview;
+    final review = result.risk == RiskLevel.professionalReview;
+    final items = [
+      if (urgent)
+        (
+          'Arrange prompt care',
+          'Contact a dentist or oral medicine specialist as soon as practical.',
+          Icons.event_available_outlined
+        )
+      else if (review)
+        (
+          'Book a dental review',
+          'Arrange a professional examination, especially if the change persists.',
+          Icons.event_outlined
+        )
+      else
+        (
+          'Keep monitoring',
+          'Check the same area weekly in good light and note any change.',
+          Icons.visibility_outlined
+        ),
+      (
+        'Avoid irritation',
+        'Avoid tobacco, betel nut, and alcohol; limit very hot or spicy foods if the area is sore.',
+        Icons.shield_outlined
+      ),
+      (
+        'Protect daily oral health',
+        'Brush gently twice daily, clean between teeth, and stay hydrated.',
+        Icons.health_and_safety_outlined
+      ),
+      (
+        'Know the warning signs',
+        'Seek care for a sore lasting over two weeks, a lump, bleeding, numbness, or trouble swallowing.',
+        Icons.warning_amber_rounded
+      ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: 'Your practical care plan'),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.divider),
+          ),
+          child: Column(
+            children: items.asMap().entries.map((entry) {
+              final item = entry.value;
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(15),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE7F2F0),
+                            borderRadius: BorderRadius.circular(11),
+                          ),
+                          child: Icon(item.$3, color: AppColors.teal, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(item.$1,
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium),
+                              const SizedBox(height: 3),
+                              Text(
+                                item.$2,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(color: AppColors.secondaryText),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (entry.key != items.length - 1)
+                    const Divider(height: 1, indent: 67),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,10 +1,13 @@
 # Oralyn
 
-Flutter UI prototype for AI-assisted oral lesion screening, explainable results,
-referral guidance, and nearby care discovery.
+Flutter mobile prototype for camera-assisted oral screening, explainable sample
+results, prevention guidance, referral support, and nearby care discovery.
 
-The application is frontend-only. AI analysis, authentication, location, camera,
-doctor search, and saved history use deterministic local simulations.
+The camera and gallery use the phone's native photo picker, and the captured
+photo is previewed throughout the screening flow. The photo remains in memory
+for the current session and is not uploaded. AI analysis, authentication,
+location, doctor search, and saved history still use deterministic local sample
+data and are clearly labelled as prototype behavior.
 
 ## Lightweight development
 
@@ -13,7 +16,7 @@ Studio and an emulator are not required; a physical Android phone can be used.
 
 ```powershell
 .\.tooling\flutter\bin\flutter.bat pub get
-.\.tooling\flutter\bin\flutter.bat run -d chrome
+.\.tooling\flutter\bin\flutter.bat run
 ```
 
 Use `.\.tooling\flutter\bin\flutter.bat run` with a configured physical Android
@@ -28,3 +31,11 @@ Static verification:
 
 Mock doctors, facilities, screening history, and result scenarios are configured
 in `lib/data/mock/mock_data.dart`.
+
+Build an installable Android APK:
+
+```powershell
+.\.tooling\flutter\bin\flutter.bat build apk --release
+```
+
+The generated file is `build/app/outputs/flutter-apk/app-release.apk`.

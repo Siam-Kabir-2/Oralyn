@@ -6,6 +6,7 @@ import '../../../controllers/screening_controller.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/screening_session.dart';
+import '../../../services/screening_api_service.dart';
 import '../../widgets/common/app_components.dart';
 
 class ScreeningPreparationScreen extends StatelessWidget {
@@ -46,7 +47,7 @@ class ScreeningPreparationScreen extends StatelessWidget {
                 const AppHeader(
                   title: 'Take a useful oral photo',
                   subtitle:
-                      'Good image quality makes the simulated guidance easier to understand.',
+                      'Good image quality helps the screening model review visible details.',
                 ),
                 const SizedBox(height: 22),
                 const _PreparationVisual(),
@@ -94,7 +95,7 @@ class _PreparationVisual extends StatelessWidget {
         height: 150,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-              colors: [Color(0xFF102A43), Color(0xFF174B5D)],
+              colors: [AppColors.ink, Color(0xFF167064)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight),
           borderRadius: BorderRadius.circular(22),
@@ -108,7 +109,7 @@ class _PreparationVisual extends StatelessWidget {
                 height: 150,
                 decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: .05)),
+                    color: AppColors.tealBright.withValues(alpha: .1)),
               )),
           const Center(
               child: SizedBox(
@@ -119,7 +120,7 @@ class _PreparationVisual extends StatelessWidget {
               left: 18,
               bottom: 14,
               child: Row(children: [
-                Icon(Icons.auto_awesome, color: Color(0xFF71D6C5), size: 17),
+                Icon(Icons.auto_awesome, color: AppColors.tealBright, size: 17),
                 SizedBox(width: 7),
                 Text('Clear • close • well lit',
                     style: TextStyle(color: Colors.white, fontSize: 12.5)),
@@ -188,7 +189,7 @@ class _PrivacyNote extends StatelessWidget {
           SizedBox(width: 10),
           Expanded(
               child: Text(
-                  'Privacy first: the selected photo is held in memory for this session only. This prototype does not upload it.',
+                  'Privacy first: your selected photo is sent only to the configured screening service when you start analysis.',
                   style: TextStyle(fontSize: 13.5, height: 1.4))),
         ]),
       );
@@ -582,9 +583,9 @@ class _QualityCheckScreenState extends State<QualityCheckScreen> {
                     Text(
                         ready
                             ? (warning
-                                ? 'The file is small, which can reduce visible detail. You can retake it or continue with the demo.'
+                                ? 'The file is small, which can reduce visible detail. You can retake it or continue with screening.'
                                 : 'The photo passed this prototype’s lightweight quality checks.')
-                            : 'Reviewing the visible detail before simulated analysis.',
+                            : 'Reviewing visible detail before analysis.',
                         style: Theme.of(context)
                             .textTheme
                             .bodyLarge
@@ -628,7 +629,7 @@ class _QualityCheckScreenState extends State<QualityCheckScreen> {
                           Expanded(
                               child: Text(warning
                                   ? 'Quality guidance is simulated and does not validate medical usefulness.'
-                                  : 'Ready for a simulated screening result.')),
+                                  : 'Ready for AI-assisted screening.')),
                         ]))
                     : const LinearProgressIndicator(
                         key: ValueKey('checking'),
@@ -644,12 +645,12 @@ class _QualityCheckScreenState extends State<QualityCheckScreen> {
                 icon: Icons.camera_alt_outlined),
             const SizedBox(height: 10),
             SecondaryButton(
-                label: 'Continue Demo',
+                label: 'Continue Screening',
                 onPressed: _continue,
                 icon: Icons.arrow_forward_rounded),
           ] else if (ready)
             PrimaryButton(
-                label: 'Run Simulated Analysis',
+                label: 'Start Screening',
                 onPressed: _continue,
                 icon: Icons.auto_awesome_outlined),
         ]),
@@ -717,6 +718,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       vsync: this, duration: const Duration(milliseconds: 1200))
     ..repeat(reverse: true);
   int stage = 0;
+  int _attempt = 0;
+  bool _submitting = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -725,16 +729,57 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   }
 
   Future<void> _analyze() async {
+    if (_submitting) return;
+    final photo = widget.photo;
+    if (photo == null) {
+      setState(() => _errorMessage =
+          'No image was selected. Go back and choose an oral photo first.');
+      return;
+    }
+
+    final attempt = ++_attempt;
+    setState(() {
+      _submitting = true;
+      _errorMessage = null;
+      stage = 0;
+    });
     Future<void>.delayed(const Duration(milliseconds: 650), () {
-      if (mounted) setState(() => stage = 1);
+      if (mounted && attempt == _attempt && _errorMessage == null) {
+        setState(() => stage = 1);
+      }
     });
     Future<void>.delayed(const Duration(milliseconds: 1350), () {
-      if (mounted) setState(() => stage = 2);
+      if (mounted && attempt == _attempt && _errorMessage == null) {
+        setState(() => stage = 2);
+      }
     });
-    final result = await controller.analyze();
-    if (!mounted) return;
-    await Navigator.pushReplacementNamed(context, AppRoutes.result,
-        arguments: ScreeningOutcome(result: result, photo: widget.photo));
+    try {
+      final result = await controller.analyze(photo);
+      if (!mounted || attempt != _attempt) return;
+      await Navigator.pushReplacementNamed(context, AppRoutes.result,
+          arguments: ScreeningOutcome(result: result, photo: photo));
+    } on PredictionException catch (error) {
+      if (mounted && attempt == _attempt) {
+        setState(() => _errorMessage = error.userMessage);
+      }
+    } catch (_) {
+      if (mounted && attempt == _attempt) {
+        setState(() => _errorMessage =
+            'Something went wrong while analyzing the image. Please try again.');
+      }
+    } finally {
+      if (mounted && attempt == _attempt) {
+        setState(() => _submitting = false);
+      }
+    }
+  }
+
+  Future<void> _updateServerUrl() async {
+    final updated = await Navigator.pushNamed<bool>(
+      context,
+      AppRoutes.apiSettings,
+    );
+    if (updated == true && mounted) await _analyze();
   }
 
   @override
@@ -747,69 +792,149 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   @override
   Widget build(BuildContext context) {
     const labels = [
-      'Preparing your photo',
-      'Simulating visible-pattern review',
-      'Building recommendations'
+      'Sending your photo securely',
+      'Running the two-stage review',
+      'Preparing careful guidance'
     ];
     return PopScope(
-        canPop: false,
+        canPop: _errorMessage != null,
         child: Scaffold(
             body: SafeArea(
                 child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(children: [
-            const Spacer(),
-            AnimatedBuilder(
-                animation: pulse,
-                builder: (_, child) => Container(
-                      width: 224,
-                      height: 224,
-                      padding: EdgeInsets.all(8 + pulse.value * 7),
-                      decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                              color: AppColors.teal
-                                  .withValues(alpha: .24 + pulse.value * .26),
-                              width: 2)),
-                      child: child,
-                    ),
-                child: ClipOval(
-                    child: widget.photo == null
-                        ? const AppImagePlaceholder(
-                            height: 200,
-                            icon: Icons.center_focus_strong_outlined,
-                            label: 'Demo analysis')
-                        : Image.memory(widget.photo!.bytes,
-                            width: 200,
-                            height: 200,
-                            fit: BoxFit.cover,
-                            gaplessPlayback: true))),
-            const SizedBox(height: 32),
-            Text('Reviewing your photo',
-                style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 8),
-            Text('Creating a demonstration result with sample data.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: AppColors.secondaryText)),
-            const SizedBox(height: 28),
-            ...labels.asMap().entries.map((entry) => _AnalysisStage(
-                label: entry.value,
-                state: entry.key < stage ? 2 : (entry.key == stage ? 1 : 0))),
-            const Spacer(),
-            const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.science_outlined,
-                  size: 16, color: AppColors.secondaryText),
-              SizedBox(width: 6),
-              Text('Prototype only — not a medical diagnosis',
-                  style: TextStyle(
-                      fontSize: 12.5, color: AppColors.secondaryText)),
-            ]),
-          ]),
+          child: _errorMessage != null
+              ? _AnalysisErrorView(
+                  message: _errorMessage!,
+                  onRetry: _analyze,
+                  onUpdateServer: _updateServerUrl,
+                  onChooseAnother: () => Navigator.pop(context),
+                )
+              : Column(children: [
+                  const Spacer(),
+                  AnimatedBuilder(
+                      animation: pulse,
+                      builder: (_, child) => Container(
+                            width: 224,
+                            height: 224,
+                            padding: EdgeInsets.all(8 + pulse.value * 7),
+                            decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: AppColors.teal.withValues(
+                                        alpha: .24 + pulse.value * .26),
+                                    width: 2)),
+                            child: child,
+                          ),
+                      child: ClipOval(
+                          child: widget.photo == null
+                              ? const AppImagePlaceholder(
+                                  height: 200,
+                                  icon: Icons.center_focus_strong_outlined,
+                                  label: 'No image selected')
+                              : Image.memory(widget.photo!.bytes,
+                                  width: 200,
+                                  height: 200,
+                                  fit: BoxFit.cover,
+                                  gaplessPlayback: true))),
+                  const SizedBox(height: 32),
+                  Text('Reviewing your photo',
+                      style: Theme.of(context).textTheme.headlineMedium),
+                  const SizedBox(height: 8),
+                  Text(
+                      'Sending the image to the AI-assisted screening service.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(color: AppColors.secondaryText)),
+                  const SizedBox(height: 28),
+                  ...labels.asMap().entries.map((entry) => _AnalysisStage(
+                      label: entry.value,
+                      state: entry.key < stage
+                          ? 2
+                          : (entry.key == stage ? 1 : 0))),
+                  const Spacer(),
+                  const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.science_outlined,
+                            size: 16, color: AppColors.secondaryText),
+                        SizedBox(width: 6),
+                        Text('AI-assisted screening — not a medical diagnosis',
+                            style: TextStyle(
+                                fontSize: 12.5,
+                                color: AppColors.secondaryText)),
+                      ]),
+                ]),
         ))));
   }
+}
+
+class _AnalysisErrorView extends StatelessWidget {
+  const _AnalysisErrorView({
+    required this.message,
+    required this.onRetry,
+    required this.onUpdateServer,
+    required this.onChooseAnother,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+  final VoidCallback onUpdateServer;
+  final VoidCallback onChooseAnother;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        children: [
+          const Spacer(),
+          Container(
+            width: 92,
+            height: 92,
+            decoration: const BoxDecoration(
+              color: AppColors.warningSoft,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.cloud_off_outlined,
+              color: AppColors.warning,
+              size: 42,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Analysis could not be completed',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context)
+                .textTheme
+                .bodyLarge
+                ?.copyWith(color: AppColors.secondaryText),
+          ),
+          const Spacer(),
+          PrimaryButton(
+            label: 'Try Again',
+            onPressed: onRetry,
+            icon: Icons.refresh_rounded,
+          ),
+          const SizedBox(height: 10),
+          SecondaryButton(
+            label: 'Update Server URL',
+            onPressed: onUpdateServer,
+            icon: Icons.cloud_sync_outlined,
+          ),
+          const SizedBox(height: 10),
+          SecondaryButton(
+            label: 'Choose Another Photo',
+            onPressed: onChooseAnother,
+            icon: Icons.photo_library_outlined,
+          ),
+        ],
+      );
 }
 
 class _AnalysisStage extends StatelessWidget {

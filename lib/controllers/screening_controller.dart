@@ -1,21 +1,31 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/screening_result.dart';
-import '../services/mock_ai_service.dart';
+import '../models/screening_session.dart';
+import '../services/screening_api_service.dart';
 
 class ScreeningController extends ChangeNotifier {
-  ScreeningController({MockAiService? service})
-      : _service = service ?? MockAiService();
-  final MockAiService _service;
+  ScreeningController({ScreeningAnalysisService? service})
+      : _service = service ?? ScreeningApiService();
+  final ScreeningAnalysisService _service;
   ScreeningResult? result;
   bool analyzing = false;
 
-  Future<ScreeningResult> analyze() async {
+  Future<ScreeningResult> analyze(ScreeningPhoto photo) async {
     analyzing = true;
     notifyListeners();
-    result = await _service.analyze();
-    analyzing = false;
-    notifyListeners();
-    return result!;
+    try {
+      result = await _service.analyze(photo);
+      return result!;
+    } finally {
+      analyzing = false;
+      notifyListeners();
+    }
+  }
+
+  @override
+  void dispose() {
+    _service.close();
+    super.dispose();
   }
 }

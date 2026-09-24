@@ -73,6 +73,11 @@ class ProfileScreen extends StatelessWidget {
             title: 'Preferences',
             items: [
               _ProfileItem(
+                Icons.cloud_outlined,
+                'Screening server',
+                () => Navigator.pushNamed(context, AppRoutes.apiSettings),
+              ),
+              _ProfileItem(
                 Icons.notifications_none_rounded,
                 'Notifications',
                 () => _message(
@@ -252,15 +257,15 @@ class PrivacyScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(22, 8, 22, 32),
           children: [
             const AppHeader(
-              title: 'Your data in this prototype',
+              title: 'Your data and screening',
               subtitle:
-                  'Oralyn is currently a frontend-only demonstration with local mock content.',
+                  'Oralyn uploads a photo only after you choose to start AI-assisted screening.',
             ),
             const SizedBox(height: 24),
             const _Policy(
-              title: 'No image upload',
+              title: 'Screening image upload',
               body:
-                  'Image areas are coded placeholders. The prototype does not capture, store, or send real photos.',
+                  'The selected image is kept in app memory and sent to the configured prediction service for analysis. Backend retention depends on the service deployment policy.',
             ),
             const _Policy(
               title: 'No account backend',
@@ -373,7 +378,7 @@ class AboutScreen extends StatelessWidget {
             const SizedBox(height: 22),
             const Center(
               child: Text(
-                'Prototype version 1.0.0',
+                'Prototype version 1.1.2',
                 style:
                     TextStyle(color: AppColors.secondaryText, fontSize: 12.5),
               ),

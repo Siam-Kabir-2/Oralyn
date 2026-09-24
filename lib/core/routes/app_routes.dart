@@ -14,6 +14,7 @@ import '../../views/screens/profile/profile_screens.dart';
 import '../../views/screens/referral/referral_screen.dart';
 import '../../views/screens/result/result_screens.dart';
 import '../../views/screens/screening/screening_flow.dart';
+import '../../views/screens/settings/api_settings_screen.dart';
 
 abstract final class AppRoutes {
   static const splash = '/';
@@ -38,6 +39,7 @@ abstract final class AppRoutes {
   static const education = '/education';
   static const privacy = '/privacy';
   static const about = '/about';
+  static const apiSettings = '/settings/screening-server';
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     final page = switch (settings.name) {
@@ -99,6 +101,7 @@ abstract final class AppRoutes {
       education => const EducationScreen(),
       privacy => const PrivacyScreen(),
       about => const AboutScreen(),
+      apiSettings => const ApiSettingsScreen(),
       _ => const _NotFoundScreen(),
     };
     return PageRouteBuilder<dynamic>(

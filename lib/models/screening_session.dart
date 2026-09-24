@@ -4,8 +4,8 @@ import 'screening_result.dart';
 
 /// The photo selected for a single screening session.
 ///
-/// Bytes are kept in memory only so this prototype does not persist or upload
-/// sensitive images.
+/// Bytes are kept in memory for the current flow and uploaded only when the
+/// user starts an API-backed screening.
 class ScreeningPhoto {
   const ScreeningPhoto({
     required this.bytes,

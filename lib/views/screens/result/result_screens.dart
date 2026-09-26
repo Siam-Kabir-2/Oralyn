@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_constants.dart';
@@ -16,143 +19,121 @@ class ResultScreen extends StatefulWidget {
 }
 
 class _ResultScreenState extends State<ResultScreen> {
-  bool expanded = false;
-
   @override
   Widget build(BuildContext context) {
     final result = widget.outcome.result;
+    final overlayBytes = _decodeDataImage(result.gradCamImageBase64);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Screening Result'),
+        centerTitle: true,
+        title: const Text('Screening result'),
         leading: IconButton(
           onPressed: () => Navigator.pushNamedAndRemoveUntil(
             context,
             AppRoutes.home,
             (_) => false,
           ),
-          icon: const Icon(Icons.close_rounded),
-          tooltip: 'Close result',
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: 'Back to home',
         ),
+        actions: [
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.ios_share_rounded),
+            tooltip: 'Share result',
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(22, 6, 22, 34),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 34),
           children: [
-            const _PrototypeBanner(),
+            _ResultIntroduction(result: result),
+            const SizedBox(height: 22),
+            _AttentionPhoto(
+              overlayBytes: overlayBytes,
+              photo: widget.outcome.photo,
+              label: result.gradCamLabel ?? 'Area highlighted for review',
+            ),
             const SizedBox(height: 14),
-            _StatusPanel(result: result),
-            if (widget.outcome.photo != null) ...[
-              const SizedBox(height: 24),
-              const SectionHeader(title: 'Photo reviewed'),
-              const SizedBox(height: 10),
-              _ReviewedPhoto(photo: widget.outcome.photo!),
-            ],
-            const SizedBox(height: 26),
-            const SectionHeader(title: 'AI screening category'),
-            const SizedBox(height: 10),
-            Text(
-              result.categoryLabel,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(color: AppColors.blue),
-            ),
-            const SizedBox(height: 20),
-            ConfidenceBar(value: result.confidence),
-            const SizedBox(height: 30),
-            const SectionHeader(title: 'Areas considered by the model'),
-            const SizedBox(height: 12),
-            GestureDetector(
-              onTap: () => Navigator.pushNamed(
-                context,
-                AppRoutes.explainability,
-                arguments: result,
-              ),
-              child: const GradCamPlaceholder(),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Highlighted areas indicate regions that influenced the screening model.',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: AppColors.secondaryText),
-            ),
-            const SizedBox(height: 8),
-            InkWell(
-              onTap: () => setState(() => expanded = !expanded),
-              borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
+            _ResultSignals(result: result),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 56,
+              child: FilledButton(
+                onPressed: () => Navigator.pushNamed(
+                  context,
+                  AppRoutes.referral,
+                  arguments: result,
+                ),
+                child: const Row(
                   children: [
-                    const Expanded(
+                    Icon(Icons.health_and_safety_outlined, size: 21),
+                    SizedBox(width: 12),
+                    Expanded(
                       child: Text(
-                        'How should I interpret this?',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.ink,
-                        ),
+                        'Find a dental professional',
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                    Icon(
-                      expanded
-                          ? Icons.expand_less_rounded
-                          : Icons.expand_more_rounded,
-                    ),
+                    Icon(Icons.arrow_forward_rounded, size: 21),
                   ],
                 ),
               ),
             ),
-            AnimatedCrossFade(
-              duration: const Duration(milliseconds: 220),
-              crossFadeState: expanded
-                  ? CrossFadeState.showSecond
-                  : CrossFadeState.showFirst,
-              firstChild: const SizedBox.shrink(),
-              secondChild: Padding(
-                padding: const EdgeInsets.only(top: 4, bottom: 8),
-                child: Text(
-                  'The overlay is a simplified visual explanation. It shows where the mock model focused, but it does not identify disease boundaries or confirm a diagnosis.',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(color: AppColors.secondaryText),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            _NextStep(result: result),
-            const SizedBox(height: 22),
-            _Recommendations(result: result),
-            const SizedBox(height: 22),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEAF2F6),
-                borderRadius: BorderRadius.circular(13),
-              ),
-              child: const Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.info_outline_rounded,
-                    color: AppColors.blue,
-                    size: 19,
-                  ),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      AppConstants.disclaimer,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        height: 1.4,
-                        color: AppColors.secondaryText,
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Result saved to screening history.'),
                       ),
                     ),
+                    icon: const Icon(Icons.bookmark_border_rounded),
+                    label: const Text('Save result'),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.history,
+                    ),
+                    icon: const Icon(Icons.history_rounded),
+                    label: const Text('View history'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 28),
+            const _WhatHappensNext(),
+            const SizedBox(height: 20),
+            _ResultDetails(result: result),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.info_outline_rounded,
+                  size: 16,
+                  color: AppColors.secondaryText,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    result.apiDisclaimer ?? AppConstants.disclaimer,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      height: 1.4,
+                      color: AppColors.secondaryText,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -161,8 +142,344 @@ class _ResultScreenState extends State<ResultScreen> {
   }
 }
 
-class _PrototypeBanner extends StatelessWidget {
-  const _PrototypeBanner();
+Uint8List? _decodeDataImage(String? value) {
+  if (value == null || value.isEmpty) return null;
+  final separator = value.indexOf(',');
+  if (separator < 0 || separator == value.length - 1) return null;
+  try {
+    return base64Decode(value.substring(separator + 1));
+  } on FormatException {
+    return null;
+  }
+}
+
+class _ResultIntroduction extends StatelessWidget {
+  const _ResultIntroduction({required this.result});
+  final ScreeningResult result;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 62),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: AppColors.successSoft,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircleAvatar(
+                        radius: 4,
+                        backgroundColor: AppColors.success,
+                      ),
+                      SizedBox(width: 7),
+                      Text(
+                        'Screening complete',
+                        style: TextStyle(
+                          color: AppColors.success,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(result.status,
+                    style: Theme.of(context).textTheme.displaySmall),
+                const SizedBox(height: 10),
+                Text(
+                  result.summary,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyLarge
+                      ?.copyWith(color: AppColors.secondaryText),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Container(
+              width: 58,
+              height: 74,
+              decoration: BoxDecoration(
+                color: AppColors.mint,
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.health_and_safety_outlined,
+                      color: AppColors.ink, size: 24),
+                  SizedBox(height: 5),
+                  Text(
+                    'Oral\nscreening',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 9, height: 1.15),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+}
+
+class _AttentionPhoto extends StatelessWidget {
+  const _AttentionPhoto({
+    required this.overlayBytes,
+    required this.photo,
+    required this.label,
+  });
+  final Uint8List? overlayBytes;
+  final ScreeningPhoto? photo;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = overlayBytes ?? photo?.bytes;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: AspectRatio(
+        aspectRatio: 1.35,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (bytes != null)
+              Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true)
+            else
+              const AppImagePlaceholder(
+                height: 260,
+                icon: Icons.image_outlined,
+                label: 'Screening image unavailable',
+              ),
+            if (overlayBytes != null)
+              Positioned(
+                right: 14,
+                top: 14,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: .9),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: Row(
+                    children: [
+                      const CircleAvatar(
+                        radius: 4,
+                        backgroundColor: Color(0xFFEF7F7E),
+                      ),
+                      const SizedBox(width: 7),
+                      Text(label,
+                          style: const TextStyle(
+                              fontSize: 11, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ResultSignals extends StatelessWidget {
+  const _ResultSignals({required this.result});
+  final ScreeningResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final verification = result.cancerVerificationPerformed
+        ? 'Second model reviewed'
+        : 'Not required';
+    return Row(
+      children: [
+        Expanded(
+          child: _SignalTile(
+            icon: Icons.center_focus_strong_outlined,
+            color: const Color(0xFFE4F0FF),
+            title: 'Attention',
+            value: result.gradCamAvailable ? 'Overlay ready' : 'Unavailable',
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _SignalTile(
+            icon: Icons.insights_outlined,
+            color: const Color(0xFFFFEFDC),
+            title: 'Confidence',
+            value: '${(result.confidence * 100).round()}%',
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _SignalTile(
+            icon: Icons.fact_check_outlined,
+            color: const Color(0xFFEEE7FF),
+            title: 'Verification',
+            value: verification,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SignalTile extends StatelessWidget {
+  const _SignalTile({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.value,
+  });
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        height: 116,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(19),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 35,
+              height: 35,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 18, color: AppColors.ink),
+            ),
+            const Spacer(),
+            Text(title,
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 3),
+            Text(
+              value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.secondaryText,
+                fontSize: 10,
+                height: 1.15,
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+class _WhatHappensNext extends StatelessWidget {
+  const _WhatHappensNext();
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('What happens next',
+              style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 18),
+          const Row(
+            children: [
+              Expanded(
+                  child: _NextStepItem(
+                      icon: Icons.person_outline_rounded,
+                      label: '1. Show to a dentist')),
+              Expanded(
+                  child: _NextStepItem(
+                      icon: Icons.calendar_month_outlined,
+                      label: '2. Get a professional check')),
+              Expanded(
+                  child: _NextStepItem(
+                      icon: Icons.visibility_outlined,
+                      label: '3. Monitor for changes')),
+            ],
+          ),
+        ],
+      );
+}
+
+class _NextStepItem extends StatelessWidget {
+  const _NextStepItem({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: const BoxDecoration(
+              color: AppColors.mint,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: AppColors.ink, size: 21),
+          ),
+          const SizedBox(height: 9),
+          Text(label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11.5, height: 1.3)),
+        ],
+      );
+}
+
+class _ResultDetails extends StatelessWidget {
+  const _ResultDetails({required this.result});
+  final ScreeningResult result;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: ExpansionTile(
+          shape: const Border(),
+          collapsedShape: const Border(),
+          title: const Text('Screening and model details'),
+          leading: const Icon(Icons.insights_outlined),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          children: [
+            ConfidenceBar(value: result.confidence),
+            if (result.topPredictions.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              _TopPredictions(predictions: result.topPredictions),
+            ],
+            if (result.cancerVerificationPerformed) ...[
+              const SizedBox(height: 12),
+              _CancerVerification(result: result),
+            ],
+          ],
+        ),
+      );
+}
+
+// Retained for saved-report compatibility while the new result layout is used.
+// ignore: unused_element
+class _ScreeningBanner extends StatelessWidget {
+  const _ScreeningBanner({required this.disclaimer});
+
+  final String disclaimer;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -172,14 +489,21 @@ class _PrototypeBanner extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFFF0D9A9)),
         ),
-        child: const Row(
+        child: Row(
           children: [
-            Icon(Icons.science_outlined, color: AppColors.warning, size: 19),
-            SizedBox(width: 9),
+            const Icon(
+              Icons.science_outlined,
+              color: AppColors.warning,
+              size: 19,
+            ),
+            const SizedBox(width: 9),
             Expanded(
               child: Text(
-                'Simulated result using sample data — not an analysis of your photo.',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                disclaimer,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -187,6 +511,7 @@ class _PrototypeBanner extends StatelessWidget {
       );
 }
 
+// ignore: unused_element
 class _ReviewedPhoto extends StatelessWidget {
   const _ReviewedPhoto({required this.photo});
 
@@ -203,7 +528,7 @@ class _ReviewedPhoto extends StatelessWidget {
               height: 230,
               fit: BoxFit.cover,
               gaplessPlayback: true,
-              semanticLabel: 'Photo used for this screening demonstration',
+              semanticLabel: 'Photo used for this screening',
             ),
             Positioned.fill(
               child: DecoratedBox(
@@ -232,8 +557,8 @@ class _ReviewedPhoto extends StatelessWidget {
                   Expanded(
                     child: Text(
                       photo.fromCamera
-                          ? 'Captured in this session • not uploaded'
-                          : 'Selected in this session • not uploaded',
+                          ? 'Captured and uploaded for this screening'
+                          : 'Selected and uploaded for this screening',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12.5,
@@ -249,6 +574,184 @@ class _ReviewedPhoto extends StatelessWidget {
       );
 }
 
+// ignore: unused_element
+class _ModelSummary extends StatelessWidget {
+  const _ModelSummary({required this.result});
+
+  final ScreeningResult result;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEAF2F6),
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.memory_outlined, color: AppColors.blue, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                result.modelVersion == null || result.modelVersion!.isEmpty
+                    ? 'Analyzed with ${result.model}'
+                    : 'Analyzed with ${result.model} • ${result.modelVersion}',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.secondaryText,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+class _CancerVerification extends StatelessWidget {
+  const _CancerVerification({required this.result});
+
+  final ScreeningResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final higherConcern = result.cancerVerificationPrediction == 'Cancer';
+    final score = result.cancerVerificationScore;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color:
+            higherConcern ? const Color(0xFFFFF3EA) : const Color(0xFFEAF5F2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color:
+              higherConcern ? const Color(0xFFE8C5A7) : const Color(0xFFB9DCD3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(title: 'Additional verification signal'),
+          const SizedBox(height: 10),
+          Text(
+            higherConcern
+                ? 'Higher-concern verification signal'
+                : 'Lower-concern verification signal',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          if (score != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Model score: ${(score * 100).toStringAsFixed(1)}%',
+              style: const TextStyle(
+                color: AppColors.secondaryText,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          const SizedBox(height: 9),
+          const Text(
+            'A second research model reviewed this image because the first '
+            'screening model flagged it for professional review. This signal '
+            'cannot confirm or rule out cancer.',
+            style: TextStyle(
+              color: AppColors.secondaryText,
+              fontSize: 12.5,
+              height: 1.4,
+            ),
+          ),
+          if (result.verificationModel != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              result.verificationModel!,
+              style: const TextStyle(
+                color: AppColors.secondaryText,
+                fontSize: 11.5,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TopPredictions extends StatelessWidget {
+  const _TopPredictions({required this.predictions});
+
+  final List<ClassScore> predictions;
+
+  String _labelFor(String className) {
+    switch (className) {
+      case 'Normal':
+        return 'Normal pattern';
+      case 'Variation_from_Normal':
+        return 'Variation from normal';
+      case 'OPMD':
+        return 'OPMD-related pattern';
+      case 'Oral_Cancer':
+        return 'Pattern requiring specialist review';
+      default:
+        return className.replaceAll('_', ' ');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(title: 'Model score breakdown'),
+          const SizedBox(height: 6),
+          Text(
+            'These scores describe model similarity, not the probability of a diagnosis.',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: AppColors.secondaryText),
+          ),
+          const SizedBox(height: 14),
+          ...predictions.map(
+            (prediction) => Padding(
+              padding: const EdgeInsets.only(bottom: 13),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _labelFor(prediction.className),
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      Text(
+                        '${(prediction.score * 100).toStringAsFixed(1)}%',
+                        style: const TextStyle(
+                          color: AppColors.secondaryText,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 7),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: LinearProgressIndicator(
+                      value: prediction.score,
+                      minHeight: 7,
+                      backgroundColor: AppColors.divider,
+                      color: AppColors.teal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+}
+
+// ignore: unused_element
 class _Recommendations extends StatelessWidget {
   const _Recommendations({required this.result});
 
@@ -357,26 +860,81 @@ class _Recommendations extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _StatusPanel extends StatelessWidget {
   const _StatusPanel({required this.result});
   final ScreeningResult result;
 
   @override
   Widget build(BuildContext context) {
+    final (accent, soft, icon) = switch (result.risk) {
+      RiskLevel.lowConcern => (
+          AppColors.success,
+          AppColors.successSoft,
+          Icons.check_rounded,
+        ),
+      RiskLevel.professionalReview => (
+          AppColors.warning,
+          AppColors.warningSoft,
+          Icons.calendar_month_outlined,
+        ),
+      RiskLevel.promptSpecialistReview => (
+          AppColors.danger,
+          AppColors.dangerSoft,
+          Icons.priority_high_rounded,
+        ),
+    };
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(21),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        gradient: LinearGradient(
+          colors: [Colors.white, soft],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: accent.withValues(alpha: .16)),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: .09),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          StatusBadge(risk: result.risk),
-          const SizedBox(height: 17),
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration:
+                    BoxDecoration(color: accent, shape: BoxShape.circle),
+                child: Icon(icon, color: Colors.white, size: 23),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: StatusBadge(risk: result.risk)),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'SCREENING GUIDANCE',
+            style: TextStyle(
+              color: accent,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: .8,
+            ),
+          ),
+          const SizedBox(height: 7),
           Text(
             result.status,
-            style: Theme.of(context).textTheme.headlineMedium,
+            style: Theme.of(context)
+                .textTheme
+                .headlineMedium
+                ?.copyWith(fontSize: 27),
           ),
           const SizedBox(height: 9),
           Text(
@@ -394,6 +952,7 @@ class _StatusPanel extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _NextStep extends StatelessWidget {
   const _NextStep({required this.result});
   final ScreeningResult result;

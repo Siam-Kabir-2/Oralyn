@@ -151,26 +151,45 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   itemCount: pages.length,
                   itemBuilder: (context, index) {
                     final item = pages[index];
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _OnboardingVisual(index: index, icon: item.icon),
-                        const SizedBox(height: 42),
-                        Text(
-                          item.title,
-                          style: Theme.of(context).textTheme.displaySmall,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          item.body,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyLarge
-                              ?.copyWith(color: AppColors.secondaryText),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+                    return LayoutBuilder(
+                      builder: (context, constraints) {
+                        final compact = constraints.maxHeight < 460;
+                        return SingleChildScrollView(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                                minHeight: constraints.maxHeight),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                _OnboardingVisual(
+                                  index: index,
+                                  icon: item.icon,
+                                  compact: compact,
+                                ),
+                                SizedBox(height: compact ? 22 : 34),
+                                Text(
+                                  item.title,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .displaySmall
+                                      ?.copyWith(fontSize: compact ? 26 : 31),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  item.body,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyLarge
+                                      ?.copyWith(
+                                          color: AppColors.secondaryText),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     );
                   },
                 ),
@@ -205,44 +224,53 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 }
 
 class _OnboardingVisual extends StatelessWidget {
-  const _OnboardingVisual({required this.index, required this.icon});
+  const _OnboardingVisual({
+    required this.index,
+    required this.icon,
+    required this.compact,
+  });
   final int index;
   final IconData icon;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 250,
-      height: 235,
+      width: compact ? 190 : 236,
+      height: compact ? 174 : 218,
       child: Stack(
         alignment: Alignment.center,
         children: [
           Container(
-            width: 210,
-            height: 210,
+            width: compact ? 160 : 196,
+            height: compact ? 160 : 196,
             decoration: BoxDecoration(
-              color: const Color(0xFFE7F2F0),
-              borderRadius: BorderRadius.circular(46),
+              gradient: const LinearGradient(
+                colors: [Color(0xFFE0F4EE), Color(0xFFCBE9E2)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(compact ? 40 : 52),
             ),
           ),
           Positioned(
-            top: 22 + index * 6,
+            top: 14 + index * 5,
             right: 7,
             child: Container(
-              width: 62,
-              height: 62,
+              width: compact ? 45 : 58,
+              height: compact ? 45 : 58,
               decoration: BoxDecoration(
-                color: const Color(0xFFDDE8F2),
+                color: const Color(0xFFFFE7D5),
                 borderRadius: BorderRadius.circular(19),
               ),
             ),
           ),
           Positioned(
-            bottom: 15,
+            bottom: 10,
             left: 3 + index * 10,
             child: Container(
-              width: 78,
-              height: 48,
+              width: compact ? 58 : 72,
+              height: compact ? 40 : 47,
               decoration: BoxDecoration(
                 color: AppColors.ink,
                 borderRadius: BorderRadius.circular(17),
@@ -255,14 +283,20 @@ class _OnboardingVisual extends StatelessWidget {
             ),
           ),
           Container(
-            width: 126,
-            height: 126,
+            width: compact ? 96 : 120,
+            height: compact ? 96 : 120,
             decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.divider),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.ink.withValues(alpha: .1),
+                  blurRadius: 22,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
-            child: Icon(icon, color: AppColors.teal, size: 52),
+            child: Icon(icon, color: AppColors.ink, size: compact ? 40 : 50),
           ),
         ],
       ),

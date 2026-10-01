@@ -19,21 +19,24 @@ abstract final class AppTheme {
       fontFamily: 'Inter',
       textTheme: const TextTheme(
         displaySmall: TextStyle(
-          fontSize: 32,
-          height: 1.15,
-          fontWeight: FontWeight.w600,
+          fontSize: 34,
+          height: 1.08,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -1.1,
           color: AppColors.text,
         ),
         headlineMedium: TextStyle(
           fontSize: 25,
           height: 1.2,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -.45,
           color: AppColors.text,
         ),
         titleLarge: TextStyle(
           fontSize: 19,
           height: 1.3,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -.2,
           color: AppColors.text,
         ),
         titleMedium: TextStyle(
@@ -63,6 +66,15 @@ abstract final class AppTheme {
         labelLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
       ),
       dividerColor: AppColors.divider,
+      cardTheme: CardThemeData(
+        color: AppColors.surface,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: const BorderSide(color: AppColors.divider),
+        ),
+      ),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.background,
         foregroundColor: AppColors.text,
@@ -71,8 +83,19 @@ abstract final class AppTheme {
         centerTitle: false,
         titleTextStyle: TextStyle(
           fontSize: 20,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           color: AppColors.text,
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(0, 54),
+          backgroundColor: AppColors.ink,
+          foregroundColor: Colors.white,
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(17),
+          ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -84,15 +107,15 @@ abstract final class AppTheme {
           vertical: 15,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: AppColors.divider),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: AppColors.divider),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: AppColors.teal, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(

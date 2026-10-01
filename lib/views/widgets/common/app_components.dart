@@ -17,25 +17,46 @@ class OralynLogo extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: onDark ? Colors.white : AppColors.ink,
-        borderRadius: BorderRadius.circular(size * .28),
+        gradient: onDark
+            ? const LinearGradient(colors: [Colors.white, Color(0xFFE3FFF8)])
+            : const LinearGradient(
+                colors: [AppColors.inkLight, AppColors.ink],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+        borderRadius: BorderRadius.circular(size * .34),
+        boxShadow: onDark
+            ? null
+            : [
+                BoxShadow(
+                  color: AppColors.ink.withValues(alpha: .16),
+                  blurRadius: 16,
+                  offset: const Offset(0, 7),
+                ),
+              ],
       ),
       child: Stack(
         alignment: Alignment.center,
         children: [
           Container(
-            width: size * .48,
-            height: size * .34,
+            width: size * .52,
+            height: size * .38,
             decoration: BoxDecoration(
               border: Border.all(
-                color: onDark ? AppColors.ink : Colors.white,
+                color: onDark ? AppColors.ink : AppColors.tealBright,
                 width: 2,
               ),
               borderRadius: BorderRadius.circular(size),
             ),
           ),
-          Container(width: 2, height: size * .18, color: AppColors.teal),
-          Container(width: size * .18, height: 2, color: AppColors.teal),
+          Container(
+            width: size * .13,
+            height: size * .13,
+            decoration: BoxDecoration(
+              color: onDark ? AppColors.teal : Colors.white,
+              shape: BoxShape.circle,
+            ),
+          ),
         ],
       ),
     );
@@ -59,15 +80,16 @@ class PrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 52,
+      height: 56,
       child: FilledButton.icon(
         onPressed: loading ? null : onPressed,
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.ink,
           foregroundColor: Colors.white,
           disabledBackgroundColor: AppColors.ink.withValues(alpha: .55),
+          elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(13),
+            borderRadius: BorderRadius.circular(17),
           ),
         ),
         icon: loading
@@ -100,14 +122,14 @@ class SecondaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 48,
+      height: 52,
       child: OutlinedButton.icon(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.ink,
           side: const BorderSide(color: AppColors.divider),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(13),
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
         icon: Icon(icon ?? Icons.arrow_back_rounded, size: 19),

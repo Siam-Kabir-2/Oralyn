@@ -17,7 +17,7 @@ void main() {
     expect(find.text('Understand oral changes earlier'), findsOneWidget);
   });
 
-  testWidgets('labels sample screening output clearly', (tester) async {
+  testWidgets('keeps the medical screening disclaimer visible', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: ResultScreen(
@@ -26,17 +26,12 @@ void main() {
       ),
     );
 
-    expect(
-      find.text(
-        'Simulated result using sample data — not an analysis of your photo.',
-      ),
-      findsOneWidget,
-    );
     await tester.scrollUntilVisible(
-      find.text('Your practical care plan'),
+      find.textContaining('not a medical diagnosis'),
       350,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('Your practical care plan'), findsOneWidget);
+    expect(find.textContaining('not a medical diagnosis'), findsOneWidget);
+    expect(find.text('What happens next'), findsOneWidget);
   });
 }

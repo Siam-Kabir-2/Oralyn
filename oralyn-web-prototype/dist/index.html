@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f5f2ed" />
+  <title>Oralyn — Product Design Prototype</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <aside class="review-rail" aria-label="Prototype screens">
+    <div class="rail-brand"><span class="brand-mark">O</span><div><b>Oralyn</b><small>Web prototype</small></div></div>
+    <p>Review the complete mobile flow</p>
+    <nav>
+      <button data-route="home" class="active">01 <span>Home</span></button>
+      <button data-route="capture">02 <span>Capture / Upload</span></button>
+      <button data-route="analyzing">03 <span>Analyzing</span></button>
+      <button data-route="result">04 <span>Screening Result</span></button>
+      <button data-route="history">05 <span>History</span></button>
+      <button data-route="detail">06 <span>Saved Detail</span></button>
+      <button data-route="care">07 <span>Find Care</span></button>
+      <button data-route="profile">08 <span>Profile</span></button>
+    </nav>
+    <div class="rail-note"><span></span> Local visual prototype<br>Backend and Flutter untouched</div>
+  </aside>
+
+  <main class="device-stage">
+    <div class="phone-shell" id="prototype">
+      <div class="status-bar"><span>9:41</span><div><span data-icon="signal"></span><span data-icon="wifi"></span><span data-icon="battery"></span></div></div>
+      <div class="screens">
+        <section class="screen active" data-screen="home">
+          <header class="home-head">
+            <div class="identity"><div class="avatar">AK</div><div><small>Good morning</small><strong>Ariana</strong></div></div>
+            <button class="icon-button" aria-label="Notifications"><span data-icon="bell"></span><i></i></button>
+          </header>
+          <div class="page-title"><h1>Your oral health,<br>made clearer.</h1><p>Private, guided screening from one photo.</p></div>
+          <article class="screening-card">
+            <div class="card-copy"><span class="eyebrow">ORAL SCREENING</span><h2>Check a visible concern</h2><p>Capture a clear image and receive careful next-step guidance.</p><button class="text-cta" data-route="capture">Start screening <span data-icon="arrow"></span></button></div>
+            <div class="oral-orbit"><span data-icon="scan"></span><i></i><b></b></div>
+          </article>
+          <div class="section-row"><h3>Recent screening</h3><button data-route="history">View all</button></div>
+          <button class="recent-row" data-route="detail">
+            <div class="mini-thumb"><img src="assets/oral-scan.svg" alt="Oral screening thumbnail"></div>
+            <div class="recent-copy"><small>24 Sep · 4:42 PM</small><strong>Low Concern</strong><span>No concerning pattern highlighted</span></div>
+            <span class="round-arrow" data-icon="chevron"></span>
+          </button>
+          <div class="shortcut-grid">
+            <button class="shortcut soft-green" data-route="history"><span data-icon="history"></span><b>History</b><small>Past check-ins</small></button>
+            <button class="shortcut soft-peach" data-route="care"><span data-icon="care"></span><b>Find care</b><small>Nearby specialists</small></button>
+          </div>
+          <article class="guidance-strip"><span data-icon="info"></span><p><b>Two-week rule</b> An oral sore that lasts over two weeks should be professionally reviewed.</p></article>
+        </section>
+
+        <section class="screen" data-screen="capture">
+          <header class="topbar"><button class="icon-button" data-route="home" aria-label="Back"><span data-icon="back"></span></button><span>New screening</span><button class="icon-button"><span data-icon="help"></span></button></header>
+          <div class="compact-title"><span class="step-label">STEP 1 OF 2</span><h1>Add an oral photo</h1><p>Use bright, even light and fill the guide with the area you want reviewed.</p></div>
+          <div class="capture-preview">
+            <div class="mouth-guide"><span></span><i></i><b></b><em></em></div>
+            <div class="capture-caption"><span data-icon="sun"></span> Bright light · steady phone · close focus</div>
+          </div>
+          <div class="capture-actions">
+            <button class="primary-action" data-route="analyzing"><span data-icon="camera"></span>Open camera</button>
+            <button class="secondary-action" data-route="analyzing"><span data-icon="image"></span>Choose from photos</button>
+          </div>
+          <div class="privacy-note"><span data-icon="lock"></span><p><b>Your photo stays private.</b><br>It is sent only to your configured screening service for analysis.</p></div>
+          <div class="photo-tips"><h3>Before you continue</h3><div><span>01</span><p><b>Remove blur</b><small>Wipe the lens and keep the phone still.</small></p></div><div><span>02</span><p><b>Avoid glare</b><small>Use soft, even room lighting.</small></p></div></div>
+        </section>
+
+        <section class="screen centered-screen" data-screen="analyzing">
+          <header class="topbar"><button class="icon-button" data-route="capture"><span data-icon="back"></span></button><span>Screening</span><span class="top-spacer"></span></header>
+          <div class="analysis-content">
+            <div class="analysis-photo"><img src="assets/oral-scan.svg" alt="Submitted oral image"><div class="soft-scan-line"></div></div>
+            <span class="analysis-kicker">SECURE IMAGE REVIEW</span>
+            <h1>Analyzing image</h1>
+            <p>Checking visible oral patterns and preparing clear screening guidance.</p>
+            <div class="progress"><i></i></div>
+            <div class="analysis-status"><span class="check-dot">✓</span><span>Image uploaded</span><span class="pulse-dot"></span><span>Reviewing patterns</span></div>
+          </div>
+          <button class="prototype-next" data-route="result">View sample result <span data-icon="arrow"></span></button>
+        </section>
+
+        <section class="screen" data-screen="result">
+          <header class="topbar result-topbar"><button class="icon-button" data-route="home"><span data-icon="back"></span></button><span>Screening result</span><button class="icon-button"><span data-icon="share"></span></button></header>
+          <article class="result-hero reference-result">
+            <span class="analysis-complete"><i></i>Screening complete</span>
+            <div class="oral-chip"><span data-icon="tooth"></span><small>Oral<br>screening</small></div>
+            <h1>Professional review recommended</h1>
+            <p>We noticed an area that may be worth checking with a dental professional.</p>
+          </article>
+          <figure class="result-photo">
+            <img src="assets/oral-scan.svg" alt="Submitted oral image with highlighted review area">
+            <span class="highlight-label"><i></i>Highlighted area</span>
+            <button aria-label="Expand image"><span data-icon="expand"></span></button>
+          </figure>
+          <section class="observation-grid" aria-label="Visible observations">
+            <article class="observation color"><span data-icon="image"></span><h3>Color</h3><p>Slightly different from nearby tissue</p></article>
+            <article class="observation texture"><span data-icon="texture"></span><h3>Texture</h3><p>Surface looks different</p></article>
+            <article class="observation shape"><span data-icon="shape"></span><h3>Shape</h3><p>Uneven area highlighted</p></article>
+          </section>
+          <button class="result-care-cta" data-route="care"><span data-icon="tooth"></span><b>Find a dental professional</b><span data-icon="arrow"></span></button>
+          <div class="result-secondary-actions"><button data-toast="Screening saved"><span data-icon="bookmark"></span>Save result</button><button data-route="history"><span data-icon="history"></span>View history</button></div>
+          <section class="next-steps">
+            <div class="next-steps-head"><h2>What happens next</h2><span>Simple next steps</span></div>
+            <div class="steps-track"><article><span data-icon="profile"></span><p><b>1.</b> Show it to a dentist</p></article><article><span data-icon="calendar"></span><p><b>2.</b> Get a professional check</p></article><article><span data-icon="history"></span><p><b>3.</b> Monitor for changes</p></article></div>
+          </section>
+          <details class="model-details"><summary><span><span data-icon="chart"></span>Screening and model details</span><span data-icon="chevron"></span></summary><div class="score-list"><div class="detail-meta"><span>Model confidence</span><b>72%</b></div><div class="detail-meta"><span>Completed</span><b>Today, 9:41</b></div><div><span>Variation from Normal</span><b>15%</b></div><div><span>OPMD</span><b>72%</b></div><div><span>Normal</span><b>8%</b></div><div><span>Oral Cancer</span><b>5%</b></div><p>Scores describe model similarity and are not diagnostic probabilities.</p></div></details>
+          <p class="disclaimer">AI-assisted research screening only. This result is not a clinical diagnosis. Seek professional care for persistent or concerning changes.</p>
+        </section>
+
+        <section class="screen" data-screen="history">
+          <header class="simple-head"><div><small>YOUR RECORDS</small><h1>Screening history</h1></div><button class="icon-button"><span data-icon="filter"></span></button></header>
+          <div class="history-summary"><div><strong>4</strong><small>Total screenings</small></div><div><strong>18 Sep</strong><small>Last check-in</small></div><div class="summary-art"><span></span><i></i><b></b></div></div>
+          <div class="month-label">SEPTEMBER 2026</div>
+          <div class="record-list">
+            <button data-route="detail"><img src="assets/oral-scan.svg" alt=""><span><small>24 Sep · 4:42 PM</small><strong>Low Concern</strong><em>No concerning pattern highlighted</em></span><i data-icon="chevron"></i></button>
+            <button data-route="detail"><img src="assets/oral-scan.svg" alt=""><span><small>18 Sep · 10:16 AM</small><strong>Review Recommended</strong><em>Monitor and arrange a dental review</em></span><i data-icon="chevron"></i></button>
+            <button data-route="detail"><img src="assets/oral-scan.svg" alt=""><span><small>02 Sep · 7:30 PM</small><strong>Low Concern</strong><em>No concerning pattern highlighted</em></span><i data-icon="chevron"></i></button>
+          </div>
+          <div class="month-label">AUGUST 2026</div>
+          <div class="record-list"><button data-route="detail"><img src="assets/oral-scan.svg" alt=""><span><small>11 Aug · 8:05 AM</small><strong>Professional Review Recommended</strong><em>Professional evaluation advised</em></span><i data-icon="chevron"></i></button></div>
+        </section>
+
+        <section class="screen" data-screen="detail">
+          <header class="topbar"><button class="icon-button" data-route="history"><span data-icon="back"></span></button><span>Saved screening</span><button class="icon-button"><span data-icon="more"></span></button></header>
+          <figure class="report-image"><img src="assets/oral-scan.svg" alt="Saved oral screening image"><span>24 Sep 2026 · 4:42 PM</span></figure>
+          <div class="report-status"><span class="status-dot low"></span><div><small>SCREENING STATUS</small><h1>Low Concern</h1><p>No concerning pattern was identified by this screening.</p></div></div>
+          <div class="report-grid"><div><small>Confidence</small><strong>84%</strong></div><div><small>Image quality</small><strong>Good</strong></div></div>
+          <section class="report-section"><h3>Recommendation</h3><p>Continue routine oral care and monitor this area. Seek care if it persists, changes, or concerns you.</p></section>
+          <section class="report-section attention-row"><div><span data-icon="focus"></span></div><p><b>AI attention region</b><small>View where the screening model focused when reviewing the image.</small></p><span data-icon="chevron"></span></section>
+          <details class="model-details"><summary><span><span data-icon="chart"></span>Optional model details</span><span data-icon="chevron"></span></summary><div class="score-list"><div><span>Normal</span><b>84%</b></div><div><span>Variation from Normal</span><b>9%</b></div><div><span>OPMD</span><b>5%</b></div><div><span>Oral Cancer</span><b>2%</b></div></div></details>
+          <button class="secondary-action" data-route="care">Find professional care</button>
+          <p class="disclaimer">Saved screening guidance is not a diagnosis and does not replace an examination.</p>
+        </section>
+
+        <section class="screen" data-screen="care">
+          <header class="simple-head"><div><small>NEARBY SUPPORT</small><h1>Find care</h1></div><button class="icon-button"><span data-icon="map"></span></button></header>
+          <label class="search-field"><span data-icon="search"></span><input placeholder="Search dentist, clinic, or area"><button data-icon="filter"></button></label>
+          <div class="filter-row"><button class="selected">Recommended</button><button>Nearest</button><button>Open today</button></div>
+          <article class="care-feature"><div class="provider-avatar">NK</div><div class="provider-copy"><span class="eyebrow">ORAL MEDICINE</span><h2>Dr. Nadia Karim</h2><p>Dhaka Dental Care · Dhanmondi</p><div><span data-icon="pin"></span>1.8 km away <span data-icon="clock"></span>Open until 7 PM</div></div><button class="icon-button"><span data-icon="heart"></span></button><footer><button data-toast="Calling is disabled in prototype"><span data-icon="phone"></span>Contact</button><button data-toast="Directions opened"><span data-icon="route"></span>Directions</button></footer></article>
+          <h3 class="list-heading">More nearby care</h3>
+          <div class="provider-list"><article><div class="provider-avatar cyan">OA</div><div><h3>Oral & Maxillofacial Centre</h3><p>Specialist clinic · Banani</p><small>3.2 km · Open today</small></div><span data-icon="chevron"></span></article><article><div class="provider-avatar peach">RS</div><div><h3>Dr. Rahman Siddique</h3><p>Oral surgeon · Gulshan</p><small>4.6 km · Next slot 5:30 PM</small></div><span data-icon="chevron"></span></article></div>
+          <p class="care-note"><span data-icon="info"></span> Provider information is sample content for design review.</p>
+        </section>
+
+        <section class="screen" data-screen="profile">
+          <header class="simple-head"><div><small>ACCOUNT</small><h1>Profile</h1></div><button class="icon-button"><span data-icon="settings"></span></button></header>
+          <div class="profile-intro"><div class="avatar large">AK</div><div><h2>Ariana Khan</h2><p>demo@oralyn.health</p></div><button class="pill-button">Edit</button></div>
+          <div class="settings-label">SCREENING</div>
+          <div class="settings-group"><button><span class="setting-icon mint" data-icon="server"></span><span><b>Screening server</b><small>Connected securely</small></span><i class="online-dot"></i><em data-icon="chevron"></em></button><button><span class="setting-icon blue" data-icon="shield"></span><span><b>Privacy & data</b><small>Manage saved screening data</small></span><em data-icon="chevron"></em></button></div>
+          <div class="settings-label">PREFERENCES</div>
+          <div class="settings-group"><button><span class="setting-icon peach" data-icon="bell"></span><span><b>Notifications</b><small>Review reminders</small></span><em data-icon="chevron"></em></button><button><span class="setting-icon neutral" data-icon="language"></span><span><b>Language</b><small>English</small></span><em data-icon="chevron"></em></button><button><span class="setting-icon neutral" data-icon="help"></span><span><b>Help & information</b><small>Using Oralyn safely</small></span><em data-icon="chevron"></em></button></div>
+          <div class="profile-foot"><span class="brand-mark small">O</span><p>Oralyn v1.0 prototype<br><small>AI-assisted screening, not diagnosis.</small></p></div>
+        </section>
+      </div>
+
+      <nav class="floating-nav" aria-label="Primary navigation">
+        <div class="nav-capsule">
+          <button data-route="home" class="active"><span data-icon="home"></span><em>Home</em></button>
+          <button data-route="history"><span data-icon="history"></span><em>History</em></button>
+          <button data-route="care"><span data-icon="care"></span><em>Care</em></button>
+          <button data-route="profile"><span data-icon="profile"></span><em>Profile</em></button>
+        </div>
+        <button class="scan-fab" data-route="capture" aria-label="Start screening"><span data-icon="plus"></span></button>
+      </nav>
+      <div class="toast" role="status"></div>
+    </div>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

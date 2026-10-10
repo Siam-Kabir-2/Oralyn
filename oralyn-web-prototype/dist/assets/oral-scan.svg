@@ -1,0 +1,30 @@
+<svg width="800" height="560" viewBox="0 0 800 560" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="80" y1="20" x2="720" y2="540" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B97B68"/>
+      <stop offset="1" stop-color="#6F443B"/>
+    </linearGradient>
+    <radialGradient id="mouth" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(410 294) rotate(90) scale(190 286)">
+      <stop stop-color="#C96E71"/>
+      <stop offset="1" stop-color="#73383E"/>
+    </radialGradient>
+    <radialGradient id="focus" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(515 295) rotate(90) scale(112)">
+      <stop stop-color="#FFD86B" stop-opacity=".62"/>
+      <stop offset=".58" stop-color="#FF8C67" stop-opacity=".28"/>
+      <stop offset="1" stop-color="#FF7968" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="8"/></filter>
+  </defs>
+  <rect width="800" height="560" rx="46" fill="url(#bg)"/>
+  <ellipse cx="400" cy="290" rx="300" ry="190" fill="#F2B4A6" opacity=".7"/>
+  <path d="M145 283C211 156 589 150 658 283C590 430 216 430 145 283Z" fill="url(#mouth)"/>
+  <path d="M210 255C294 197 508 198 592 255C501 278 301 278 210 255Z" fill="#F6EEE5"/>
+  <path d="M215 324C304 370 502 369 586 322C498 307 306 308 215 324Z" fill="#F2E9DF"/>
+  <path d="M228 267C319 288 492 288 576 267" stroke="#D7C9BE" stroke-width="8" stroke-linecap="round"/>
+  <ellipse cx="511" cy="295" rx="123" ry="118" fill="url(#focus)"/>
+  <ellipse cx="511" cy="295" rx="88" ry="84" stroke="#FFF2C0" stroke-width="4" stroke-dasharray="10 12" opacity=".9"/>
+  <circle cx="520" cy="296" r="18" fill="#F7B069" opacity=".8" filter="url(#soft)"/>
+  <rect x="28" y="28" width="150" height="42" rx="21" fill="#171A19" fill-opacity=".5"/>
+  <circle cx="51" cy="49" r="6" fill="#7ED6C0"/>
+  <text x="67" y="55" fill="white" font-family="Arial, sans-serif" font-size="17" font-weight="600">Image preview</text>
+</svg>

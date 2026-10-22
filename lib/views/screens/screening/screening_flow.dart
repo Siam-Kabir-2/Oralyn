@@ -267,9 +267,21 @@ class _CaptureScreenState extends State<CaptureScreen> {
   }
 
   Future<void> _handleFile(XFile file, {required bool fromCamera}) async {
+    if (await file.length() > ScreeningApiService.maxUploadBytes) {
+      if (mounted) {
+        setState(() => _message =
+            'This image is larger than 10 MB. Please choose a smaller photo.');
+      }
+      return;
+    }
     final bytes = await file.readAsBytes();
     if (bytes.isEmpty) throw StateError('Empty image');
     if (!mounted) return;
+    if (bytes.lengthInBytes > ScreeningApiService.maxUploadBytes) {
+      setState(() => _message =
+          'This image is larger than 10 MB. Please choose a smaller photo.');
+      return;
+    }
     final photo = ScreeningPhoto(
       bytes: bytes,
       name: file.name,

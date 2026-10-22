@@ -38,7 +38,9 @@ class _ResultScreenState extends State<ResultScreen> {
         ),
         actions: [
           IconButton(
-            onPressed: () {},
+            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Sharing is not available yet.')),
+            ),
             icon: const Icon(Icons.ios_share_rounded),
             tooltip: 'Share result',
           ),
@@ -89,7 +91,7 @@ class _ResultScreenState extends State<ResultScreen> {
                   child: OutlinedButton.icon(
                     onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Result saved to screening history.'),
+                        content: Text('Saving results is not available yet.'),
                       ),
                     ),
                     icon: const Icon(Icons.bookmark_border_rounded),
@@ -302,7 +304,7 @@ class _ResultSignals extends StatelessWidget {
   Widget build(BuildContext context) {
     final verification = result.cancerVerificationPerformed
         ? 'Second model reviewed'
-        : 'Not required';
+        : 'Not run';
     return Row(
       children: [
         Expanded(
@@ -318,7 +320,7 @@ class _ResultSignals extends StatelessWidget {
           child: _SignalTile(
             icon: Icons.insights_outlined,
             color: const Color(0xFFFFEFDC),
-            title: 'Confidence',
+            title: 'Model score',
             value: '${(result.confidence * 100).round()}%',
           ),
         ),
@@ -1021,7 +1023,7 @@ class _NextStep extends StatelessWidget {
             child: TextButton.icon(
               onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Result saved to screening history.'),
+                  content: Text('Saving results is not available yet.'),
                 ),
               ),
               style: TextButton.styleFrom(foregroundColor: Colors.white),

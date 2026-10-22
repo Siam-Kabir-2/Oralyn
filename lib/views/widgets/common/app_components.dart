@@ -416,7 +416,7 @@ class ConfidenceBar extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Expanded(child: Text('Model confidence')),
+            const Expanded(child: Text('Model score')),
             Text(
               '${(value * 100).round()}%',
               style: const TextStyle(
@@ -442,7 +442,7 @@ class ConfidenceBar extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Confidence reflects model consistency, not diagnostic certainty.',
+          'This model score is not a disease probability or diagnosis.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],

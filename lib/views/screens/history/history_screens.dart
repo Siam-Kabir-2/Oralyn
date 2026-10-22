@@ -124,7 +124,7 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
           const SizedBox(height: 24),
           _SavedData(label: 'Classification', value: result.categoryLabel),
           _SavedData(
-            label: 'Confidence',
+            label: 'Model score',
             value: '${(result.confidence * 100).round()}%',
           ),
           _SavedData(label: 'Recommendation', value: result.recommendation),

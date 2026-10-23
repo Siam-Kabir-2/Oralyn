@@ -154,6 +154,12 @@ class _DoctorDirectoryState extends State<_DoctorDirectory> {
         const SizedBox(height: 8),
         if (controller.loading)
           ...List.generate(4, (_) => const _DoctorSkeleton())
+        else if (controller.errorMessage != null)
+          ErrorState(
+            title: 'Care directory unavailable',
+            message: controller.errorMessage!,
+            onRetry: load,
+          )
         else if (controller.doctors.isEmpty)
           EmptyState(
             title: 'No matching facilities found nearby',

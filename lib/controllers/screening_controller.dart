@@ -8,23 +8,30 @@ class ScreeningController extends ChangeNotifier {
   ScreeningController({ScreeningAnalysisService? service})
       : _service = service ?? ScreeningApiService();
   final ScreeningAnalysisService _service;
-  ScreeningResult? result;
-  bool analyzing = false;
+  ScreeningResult? _result;
+  bool _analyzing = false;
+  bool _disposed = false;
+
+  ScreeningResult? get result => _result;
+  bool get analyzing => _analyzing;
 
   Future<ScreeningResult> analyze(ScreeningPhoto photo) async {
-    analyzing = true;
+    if (_disposed) throw StateError('ScreeningController is disposed.');
+    _analyzing = true;
     notifyListeners();
     try {
-      result = await _service.analyze(photo);
-      return result!;
+      final completed = await _service.analyze(photo);
+      if (!_disposed) _result = completed;
+      return completed;
     } finally {
-      analyzing = false;
-      notifyListeners();
+      _analyzing = false;
+      if (!_disposed) notifyListeners();
     }
   }
 
   @override
   void dispose() {
+    _disposed = true;
     _service.close();
     super.dispose();
   }

@@ -45,8 +45,10 @@ tunnel with a stable hostname for distributed builds.
 
 ## Start the backend and tunnel
 
-The backend and `cloudflared.exe` are stored in `D:\oralyn-backend`. Start both
-with one command from this project:
+The FastAPI source is tracked in `.backend-work/`. The local Python environment,
+model checkpoints, `.env`, and `cloudflared.exe` remain outside Git in
+`D:\oralyn-backend`. The launcher runs the tracked source and points it to those
+private runtime files:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Start-Oralyn-Server.ps1
@@ -56,6 +58,29 @@ Wait for Cloudflare to print its `https://...trycloudflare.com` URL. Keep that
 terminal open, then open **Profile → Screening server** in Oralyn and paste the
 URL. The app automatically adds `/predict`. Closing the terminal stops the
 backend/tunnel, and restarting a Quick Tunnel produces a new URL.
+
+The backend loads both checkpoints once at startup. `/health` reports healthy
+only when screening models are ready. `/predict` retains its multipart `image`
+field, `x-api-key` header, response fields, class mapping, and conditional
+second-model behavior. Uploads are limited to 10 MB of image data, with a 64 KB
+multipart allowance and a 4 million decoded-pixel limit. The mobile picker
+resizes images to at most 1600 px on either side.
+
+Backend checks use generated images; no patient images are included:
+
+```powershell
+cd .backend-work
+python -m pip install -r requirements-dev.txt
+python -m unittest discover -s tests -v
+$env:ORALYN_MODEL_DIR = 'D:\oralyn-backend\models'
+python backend_gradcam_smoke_test.py
+python backend_live_integration_test.py
+```
+
+The real-checkpoint checks need the local model files; the contract tests do
+not. The backend remains a research prototype with a shared client key and no
+patient-level authorization. See [the Phase 2 report](docs/PHASE2_BACKEND.md)
+before using real patient records.
 
 ## Lightweight development
 

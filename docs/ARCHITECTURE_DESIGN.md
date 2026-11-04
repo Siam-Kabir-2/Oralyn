@@ -2,6 +2,8 @@
 
 This document distinguishes implemented behavior from proposed boundaries. The current system is a research prototype, not a diagnosis or a patient-record system. See [the audit](ARCHITECTURE_AUDIT.md) for evidence, severity and change gates.
 
+The FastAPI boundary and model-loading structure described below were implemented in Phase 2; see [the implementation report](PHASE2_BACKEND.md). The following “current data flow” describes the pre-Phase-2 baseline for historical comparison. Patient, doctor and database components remain plans only.
+
 ## Current data flow and responsibilities
 
 `image_picker` supplies one `ScreeningPhoto` in memory. `AnalysisScreen` calls `ScreeningController`, which calls `ScreeningApiService`. The service builds a multipart `POST /predict` with `image` and a shared `x-api-key`, parses the JSON and maps backend classes/statuses to `ScreeningResult`. `ResultScreen` displays the result; history, doctors and authentication remain mock flows. The URL comes from `shared_preferences` or the build default. No result is stored.

@@ -12,7 +12,6 @@ BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
 @dataclass(frozen=True)
 class Settings:
-    api_key: str
     model_dir: Path
     clerk_issuer: str = ""
     clerk_authorized_parties: tuple[str, ...] = ()
@@ -33,7 +32,6 @@ class Settings:
         load_dotenv(env_file if env_file else BACKEND_ROOT / ".env")
         model_dir = Path(os.getenv("ORALYN_MODEL_DIR", BACKEND_ROOT / "models"))
         return cls(
-            api_key=os.getenv("ORALYN_API_KEY", ""),
             model_dir=model_dir.resolve(),
             clerk_issuer=os.getenv("CLERK_ISSUER", "").rstrip("/"),
             clerk_authorized_parties=tuple(

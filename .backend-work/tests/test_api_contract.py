@@ -70,7 +70,7 @@ class ApiContractTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.inference = FakeInference()
         self.gradcam = FakeGradCam()
-        self.settings = Settings(api_key="test-key", model_dir=Path("unused"))
+        self.settings = Settings(model_dir=Path("unused"))
         self.app = create_app(
             settings=self.settings,
             screening_service=ScreeningService(self.inference, self.gradcam),
@@ -205,7 +205,7 @@ class ApiContractTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_decoded_pixel_limit_is_enforced(self):
         self.app.state.settings = Settings(
-            api_key="test-key", model_dir=Path("unused"), max_image_pixels=1000
+            model_dir=Path("unused"), max_image_pixels=1000
         )
         response = await self.request(data=png((40, 40)))
         self.assertEqual(response.status_code, 413)
@@ -241,7 +241,7 @@ class ApiContractTests(unittest.IsolatedAsyncioTestCase):
     async def test_missing_checkpoint_fails_startup(self):
         unavailable = create_app(
             settings=Settings(
-                api_key="", model_dir=Path("missing-checkpoints"),
+                model_dir=Path("missing-checkpoints"),
                 clerk_issuer="https://unit-test.clerk.accounts.dev",
             )
         )
@@ -251,7 +251,7 @@ class ApiContractTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_missing_clerk_issuer_fails_startup(self):
         unavailable = create_app(
-            settings=Settings(api_key="", model_dir=Path("unused")),
+            settings=Settings(model_dir=Path("unused")),
             screening_service=ScreeningService(self.inference, self.gradcam),
         )
         with self.assertRaisesRegex(RuntimeError, "not configured"):

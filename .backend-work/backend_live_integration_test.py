@@ -21,7 +21,10 @@ with socket.socket() as probe:
     port = probe.getsockname()[1]
 
 environment = os.environ.copy()
-environment["ORALYN_API_KEY"] = "integration-test-only"
+issuer = os.getenv("CLERK_ISSUER", "")
+session_token = os.getenv("ORALYN_TEST_SESSION_TOKEN", "")
+assert issuer and session_token, "Set CLERK_ISSUER and ORALYN_TEST_SESSION_TOKEN for live integration"
+environment["CLERK_ISSUER"] = issuer
 environment["ORALYN_MODEL_DIR"] = str(model_root)
 environment.pop("ORALYN_ENV_FILE", None)
 command = [
@@ -45,7 +48,8 @@ process = subprocess.Popen(
 try:
     base_url = f"http://127.0.0.1:{port}"
     with httpx.Client(base_url=base_url, timeout=10.0) as client:
-        deadline = time.monotonic() + 35
+        # Cold Windows/CPU model loads can exceed 35 seconds under Gradle load.
+        deadline = time.monotonic() + 90
         while time.monotonic() < deadline:
             if process.poll() is not None:
                 raise AssertionError("Uvicorn exited before model readiness")
@@ -63,7 +67,7 @@ try:
         Image.new("RGB", (256, 256), (180, 120, 115)).save(buffer, "PNG")
         response = client.post(
             "/predict",
-            headers={"x-api-key": "integration-test-only"},
+            headers={"authorization": f"Bearer {session_token}"},
             files={"image": ("synthetic.png", buffer.getvalue(), "image/png")},
         )
         assert response.status_code == 200, response.status_code

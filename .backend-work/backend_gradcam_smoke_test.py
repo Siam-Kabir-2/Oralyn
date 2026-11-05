@@ -11,6 +11,13 @@ from PIL import Image
 
 from app.core.config import Settings
 from app.main import create_app
+from app.core.auth import AuthenticatedUser
+
+
+class _SmokeTokenVerifier:
+    def verify(self, token):
+        assert token == "synthetic-smoke-session"
+        return AuthenticatedUser("user_synthetic", "sess_synthetic")
 
 
 class _FailGradCam:
@@ -27,7 +34,10 @@ def _synthetic_png():
 async def run():
     default_root = Path(os.getenv("ORALYN_BACKEND_ROOT", Path(__file__).parent))
     model_dir = Path(os.getenv("ORALYN_MODEL_DIR", default_root / "models"))
-    application = create_app(Settings(api_key="smoke-test-only", model_dir=model_dir))
+    application = create_app(
+        Settings(model_dir=model_dir),
+        token_verifier=_SmokeTokenVerifier(),
+    )
 
     async with application.router.lifespan_context(application):
         service = application.state.screening_service
@@ -40,7 +50,7 @@ async def run():
             base_url="http://testserver",
         ) as client:
             assert (await client.get("/health")).json() == {"status": "healthy"}
-            headers = {"x-api-key": "smoke-test-only"}
+            headers = {"authorization": "Bearer synthetic-smoke-session"}
             invalid = await client.post(
                 "/predict",
                 headers=headers,

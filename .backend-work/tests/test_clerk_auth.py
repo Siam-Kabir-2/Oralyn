@@ -116,7 +116,7 @@ class ClerkApiIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         screening = SyntheticScreening()
         app = create_app(
-            Settings(api_key="", model_dir=Path("unused")),
+            Settings(model_dir=Path("unused")),
             screening_service=screening,
             token_verifier=verifier,
         )

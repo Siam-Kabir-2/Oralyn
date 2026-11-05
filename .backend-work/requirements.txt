@@ -2,6 +2,7 @@ fastapi
 uvicorn[standard]
 python-multipart
 python-dotenv
+PyJWT[crypto]>=2.10,<3
 Pillow
 numpy
 torch

@@ -7,7 +7,9 @@ from unittest.mock import patch
 
 import httpx
 from PIL import Image
+from fastapi import HTTPException
 
+from app.core.auth import AuthenticatedUser
 from app.core.config import Settings
 from app.main import create_app
 from app.services.screening import ScreeningService
@@ -57,6 +59,13 @@ class FakeGradCam:
         return "data:image/jpeg;base64,ZmFrZQ=="
 
 
+class FakeTokenVerifier:
+    def verify(self, token):
+        if token != "test-session":
+            raise HTTPException(status_code=401, detail="Invalid or expired session")
+        return AuthenticatedUser("user_synthetic", "sess_synthetic")
+
+
 class ApiContractTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.inference = FakeInference()
@@ -65,10 +74,11 @@ class ApiContractTests(unittest.IsolatedAsyncioTestCase):
         self.app = create_app(
             settings=self.settings,
             screening_service=ScreeningService(self.inference, self.gradcam),
+            token_verifier=FakeTokenVerifier(),
         )
 
-    async def request(self, path="/predict", *, data=None, key="test-key", mime="image/png"):
-        headers = {} if key is None else {"x-api-key": key}
+    async def request(self, path="/predict", *, data=None, key="test-session", mime="image/png"):
+        headers = {} if key is None else {"authorization": f"Bearer {key}"}
         files = None if data is None else {"image": ("synthetic.png", data, mime)}
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=self.app),
@@ -142,7 +152,7 @@ class ApiContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.json()["gradcam"], {"available": False})
         self.assertNotIn("private image name", " ".join(logs.output))
 
-    async def test_key_validation_precedes_image_processing(self):
+    async def test_session_validation_precedes_image_processing(self):
         for key in (None, "wrong"):
             with self.subTest(key=key):
                 response = await self.request(data=png(), key=key)
@@ -230,13 +240,16 @@ class ApiContractTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_missing_checkpoint_fails_startup(self):
         unavailable = create_app(
-            settings=Settings(api_key="test-key", model_dir=Path("missing-checkpoints"))
+            settings=Settings(
+                api_key="", model_dir=Path("missing-checkpoints"),
+                clerk_issuer="https://unit-test.clerk.accounts.dev",
+            )
         )
         with self.assertRaisesRegex(RuntimeError, "could not be initialized"):
             async with unavailable.router.lifespan_context(unavailable):
                 pass
 
-    async def test_missing_api_key_fails_startup(self):
+    async def test_missing_clerk_issuer_fails_startup(self):
         unavailable = create_app(
             settings=Settings(api_key="", model_dir=Path("unused")),
             screening_service=ScreeningService(self.inference, self.gradcam),

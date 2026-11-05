@@ -14,6 +14,9 @@ BACKEND_ROOT = Path(__file__).resolve().parents[2]
 class Settings:
     api_key: str
     model_dir: Path
+    clerk_issuer: str = ""
+    clerk_authorized_parties: tuple[str, ...] = ()
+    clerk_audience: str | None = None
     max_image_bytes: int = 10 * 1024 * 1024
     # Flutter's picker caps each side at 1600 px; allow larger API clients
     # while bounding the original-size Grad-CAM overlay allocations.
@@ -32,4 +35,11 @@ class Settings:
         return cls(
             api_key=os.getenv("ORALYN_API_KEY", ""),
             model_dir=model_dir.resolve(),
+            clerk_issuer=os.getenv("CLERK_ISSUER", "").rstrip("/"),
+            clerk_authorized_parties=tuple(
+                party.strip()
+                for party in os.getenv("CLERK_AUTHORIZED_PARTIES", "").split(",")
+                if party.strip()
+            ),
+            clerk_audience=os.getenv("CLERK_AUDIENCE") or None,
         )

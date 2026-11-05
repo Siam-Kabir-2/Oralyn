@@ -1,12 +1,11 @@
 """Stable public routes; inference and image parsing live elsewhere."""
 
 import logging
-import secrets
-
-from fastapi import APIRouter, File, Header, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from starlette.concurrency import run_in_threadpool
 
 from app.api.upload import read_valid_image
+from app.core.auth import AuthenticatedUser, authenticated_user
 
 
 logger = logging.getLogger(__name__)
@@ -29,14 +28,8 @@ def health(request: Request):
 async def predict(
     request: Request,
     image: UploadFile = File(...),
-    x_api_key: str | None = Header(default=None),
+    identity: AuthenticatedUser = Depends(authenticated_user),
 ):
-    configured_key = request.app.state.settings.api_key
-    if not x_api_key:
-        raise HTTPException(status_code=401, detail="API key required")
-    if not configured_key or not secrets.compare_digest(x_api_key, configured_key):
-        raise HTTPException(status_code=401, detail="Invalid API key")
-
     screening_service = request.app.state.screening_service
     if screening_service is None:
         raise HTTPException(status_code=503, detail="Screening models are unavailable.")

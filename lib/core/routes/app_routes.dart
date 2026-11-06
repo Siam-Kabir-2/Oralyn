@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:clerk_flutter/clerk_flutter.dart';
 
 import '../../data/mock/mock_data.dart';
 import '../../models/doctor.dart';
@@ -108,7 +109,10 @@ abstract final class AppRoutes {
       settings: settings,
       transitionDuration: const Duration(milliseconds: 220),
       reverseTransitionDuration: const Duration(milliseconds: 180),
-      pageBuilder: (_, animation, __) => page,
+      pageBuilder: (_, animation, __) => _AuthRoute(
+        routeName: settings.name,
+        child: page,
+      ),
       transitionsBuilder: (_, animation, __, child) {
         final offset = Tween(
           begin: const Offset(.035, 0),
@@ -122,6 +126,37 @@ abstract final class AppRoutes {
           ),
         );
       },
+    );
+  }
+}
+
+class _AuthRoute extends StatelessWidget {
+  const _AuthRoute({required this.routeName, required this.child});
+
+  final String? routeName;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (routeName == AppRoutes.splash || routeName == AppRoutes.onboarding) {
+      return child;
+    }
+    final isAuthRoute = routeName == AppRoutes.login ||
+        routeName == AppRoutes.register ||
+        routeName == AppRoutes.forgotPassword;
+    return ClerkAuthBuilder(
+      signedInBuilder: (_, auth) {
+        final session = auth.session;
+        final active = session != null &&
+            session.isActive &&
+            session.expireAt.isAfter(DateTime.now());
+        if (!active) {
+          return const ExpiredSessionScreen();
+        }
+        return isAuthRoute ? const MainShell() : child;
+      },
+      signedOutBuilder: (_, __) =>
+          isAuthRoute ? child : const LoginScreen(sessionExpired: true),
     );
   }
 }

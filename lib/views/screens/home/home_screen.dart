@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:clerk_flutter/clerk_flutter.dart';
 
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -72,67 +73,74 @@ class _HomeHeader extends StatelessWidget {
   const _HomeHeader();
 
   @override
-  Widget build(BuildContext context) => Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: const BoxDecoration(
-              color: AppColors.peachSoft,
-              shape: BoxShape.circle,
-            ),
-            child: const Center(
-              child: Text('AK',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-            ),
+  Widget build(BuildContext context) {
+    final name = ClerkAuth.userOf(context)?.name.trim();
+    final displayName = name == null || name.isEmpty ? 'Oralyn member' : name;
+    final parts = displayName.split(RegExp(r'\s+'));
+    final initials = parts.take(2).map((part) => part[0]).join().toUpperCase();
+    return Row(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: const BoxDecoration(
+            color: AppColors.peachSoft,
+            shape: BoxShape.circle,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Good morning',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Ariana',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ],
-            ),
+          child: Center(
+            child: Text(initials,
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
           ),
-          Container(
-            width: 43,
-            height: 43,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.divider),
-            ),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                const Center(
-                    child: Icon(Icons.notifications_none_rounded, size: 21)),
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: AppColors.coral,
-                      shape: BoxShape.circle,
-                    ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Good morning',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                displayName,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ],
+          ),
+        ),
+        Container(
+          width: 43,
+          height: 43,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.divider),
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Center(
+                  child: Icon(Icons.notifications_none_rounded, size: 21)),
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: AppColors.coral,
+                    shape: BoxShape.circle,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      );
+        ),
+      ],
+    );
+  }
 }
 
 class _ScreeningHero extends StatelessWidget {

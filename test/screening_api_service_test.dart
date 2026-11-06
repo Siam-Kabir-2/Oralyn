@@ -56,14 +56,14 @@ void main() {
     final service = ScreeningApiService(
       client: client,
       endpoint: Uri.parse('https://example.test/predict'),
-      apiKey: 'test-key',
+      tokenProvider: () async => 'test-session',
     );
 
     final result = await service.analyze(photo);
 
     expect(capturedRequest.method, 'POST');
     expect(capturedRequest.url.path, '/predict');
-    expect(capturedRequest.headers['x-api-key'], 'test-key');
+    expect(capturedRequest.headers['authorization'], 'Bearer test-session');
     expect(
       capturedRequest.headers['content-type'],
       startsWith('multipart/form-data; boundary='),
@@ -117,7 +117,7 @@ void main() {
     final service = ScreeningApiService(
       client: client,
       endpoint: Uri.parse('https://example.test/predict'),
-      apiKey: 'test-key',
+      tokenProvider: () async => 'test-session',
     );
 
     final result = await service.analyze(photo);
@@ -130,11 +130,11 @@ void main() {
     service.close();
   });
 
-  test('reports an unauthorized API key clearly', () async {
+  test('reports an unauthorized session clearly', () async {
     final service = ScreeningApiService(
       client: MockClient((_) async => http.Response('{}', 401)),
       endpoint: Uri.parse('https://example.test/predict'),
-      apiKey: 'wrong-key',
+      tokenProvider: () async => 'expired-session',
     );
 
     await expectLater(
@@ -148,6 +148,29 @@ void main() {
       ),
     );
 
+    service.close();
+  });
+
+  test('does not upload when the session has expired', () async {
+    var sent = false;
+    final service = ScreeningApiService(
+      client: MockClient((_) async {
+        sent = true;
+        return http.Response('{}', 200);
+      }),
+      endpoint: Uri.parse('https://example.test/predict'),
+      tokenProvider: () async => null,
+    );
+
+    await expectLater(
+      service.analyze(photo),
+      throwsA(isA<PredictionException>().having(
+        (error) => error.kind,
+        'kind',
+        PredictionErrorKind.unauthorized,
+      )),
+    );
+    expect(sent, isFalse);
     service.close();
   });
 }

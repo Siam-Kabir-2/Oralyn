@@ -27,6 +27,7 @@ migrate_working_dir/
 
 # Flutter/Dart/Pub related
 .tooling/
+.tmp/
 *.apk
 **/doc/api/
 **/ios/Flutter/.last_build_id

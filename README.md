@@ -5,8 +5,9 @@ referral support, and nearby care discovery.
 
 The camera and gallery use the phone's native photo picker, and the captured
 photo is previewed throughout the screening flow. When screening starts, the
-photo is uploaded to the configured FastAPI prediction service. Authentication,
-location, doctor search, and saved history still use local prototype data.
+photo is uploaded to the configured FastAPI prediction service. Authentication
+uses the existing Clerk development application; location, doctor search, and
+saved history still use local prototype data.
 
 ## Prediction API configuration
 
@@ -14,12 +15,12 @@ The app includes a development Cloudflare Quick Tunnel URL. The base URL can be
 changed on the phone from **Profile → Screening server**. If a screening
 request fails, the error screen also provides **Update Server URL**.
 
-The API key is intentionally not stored in source control. Provide a
-development key at build or run time:
+The existing Clerk development publishable key is public and included as a
+default. Override it for another Clerk instance at build or run time:
 
 ```powershell
 .\.tooling\flutter\bin\flutter.bat run `
-  --dart-define=ORALYN_API_KEY=<development-key>
+  --dart-define=CLERK_PUBLISHABLE_KEY=<publishable-key>
 ```
 
 You can still override the initial default URL at build time:
@@ -31,10 +32,9 @@ You can still override the initial default URL at build time:
 
 The current default endpoint is
 `https://manufacturing-yea-guild-roommates.trycloudflare.com/predict`. The app
-sends a multipart `POST` using the `image` field and the `x-api-key` header. The
-build-time key can still be extracted from the compiled APK, so a
-user-authenticated proxy or short-lived client token should replace it before
-production.
+sends a multipart `POST` using the `image` field and a short-lived Clerk
+session token in the `Authorization: Bearer` header. The legacy shared mobile
+API key is no longer accepted by `/predict`.
 
 FastAPI exposes interactive Swagger documentation at `/docs`; documentation
 URLs such as `/docs/predict` are not API routes. The in-app URL editor corrects
@@ -61,7 +61,7 @@ backend/tunnel, and restarting a Quick Tunnel produces a new URL.
 
 The backend loads both checkpoints once at startup. `/health` reports healthy
 only when screening models are ready. `/predict` retains its multipart `image`
-field, `x-api-key` header, response fields, class mapping, and conditional
+field, response fields, class mapping, and conditional
 second-model behavior. Uploads are limited to 10 MB of image data, with a 64 KB
 multipart allowance and a 4 million decoded-pixel limit. The mobile picker
 resizes images to at most 1600 px on either side.
@@ -74,12 +74,15 @@ python -m pip install -r requirements-dev.txt
 python -m unittest discover -s tests -v
 $env:ORALYN_MODEL_DIR = 'D:\oralyn-backend\models'
 python backend_gradcam_smoke_test.py
+# With CLERK_ISSUER and ORALYN_TEST_SESSION_TOKEN set privately:
 python backend_live_integration_test.py
 ```
 
 The real-checkpoint checks need the local model files; the contract tests do
-not. The backend remains a research prototype with a shared client key and no
-patient-level authorization. See [the Phase 2 report](docs/PHASE2_BACKEND.md)
+not. The launcher sets `CLERK_ISSUER` to the existing development issuer;
+deployments can set `CLERK_AUTHORIZED_PARTIES` and `CLERK_AUDIENCE` to restrict
+token claims. The live integration script requires `ORALYN_TEST_SESSION_TOKEN`
+from a signed-in test account. See the [Phase 3A report](docs/PHASE3A_AUTH.md)
 before using real patient records.
 
 ## Lightweight development

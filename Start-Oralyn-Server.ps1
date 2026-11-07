@@ -21,6 +21,10 @@ if (-not (Test-Path -LiteralPath (Join-Path $backendSource 'main.py'))) {
 # The child Uvicorn process inherits these paths, never the values in the logs.
 $env:ORALYN_ENV_FILE = Join-Path $backendRoot '.env'
 $env:ORALYN_MODEL_DIR = Join-Path $backendRoot 'models'
+if (-not $env:CLERK_ISSUER) {
+    # Public issuer of the existing Clerk development instance.
+    $env:CLERK_ISSUER = 'https://balanced-mammal-1206.clerk.accounts.dev'
+}
 
 Write-Host 'Starting the Oralyn FastAPI model server...'
 $server = Start-Process `

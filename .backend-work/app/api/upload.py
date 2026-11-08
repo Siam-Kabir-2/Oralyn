@@ -1,6 +1,7 @@
 """Bound multipart requests and validate decoded image resources."""
 
 import io
+from dataclasses import dataclass
 
 from fastapi import HTTPException, UploadFile
 from PIL import Image
@@ -16,7 +17,9 @@ class RequestSizeLimitMiddleware:
         self.max_request_bytes = max_request_bytes
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] != "http" or scope.get("path") != "/predict":
+        if scope["type"] != "http" or scope.get("path") not in {
+            "/predict", "/screenings"
+        }:
             await self.app(scope, receive, send)
             return
 
@@ -65,7 +68,15 @@ class RequestSizeLimitMiddleware:
         await self.app(scope, bounded_receive, send)
 
 
-async def read_valid_image(upload: UploadFile, settings) -> Image.Image:
+@dataclass
+class ValidatedImage:
+    image: Image.Image
+    contents: bytes
+    content_type: str
+    extension: str
+
+
+async def read_valid_image_payload(upload: UploadFile, settings) -> ValidatedImage:
     if not upload.content_type:
         raise HTTPException(status_code=400, detail="Unknown file type")
     if not upload.content_type.startswith("image/"):
@@ -86,8 +97,28 @@ async def read_valid_image(upload: UploadFile, settings) -> Image.Image:
                     detail="Decoded image is too large for screening.",
                 )
             opened.load()
-            return opened.copy()
+            image_format = (opened.format or "").upper()
+            detected = {
+                "JPEG": ("image/jpeg", "jpg"),
+                "PNG": ("image/png", "png"),
+                "WEBP": ("image/webp", "webp"),
+                "BMP": ("image/bmp", "bmp"),
+            }.get(image_format)
+            if detected is None:
+                raise HTTPException(
+                    status_code=400, detail="Unsupported image format"
+                )
+            return ValidatedImage(
+                image=opened.copy(),
+                contents=contents,
+                content_type=detected[0],
+                extension=detected[1],
+            )
     except HTTPException:
         raise
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid image file") from None
+
+
+async def read_valid_image(upload: UploadFile, settings) -> Image.Image:
+    return (await read_valid_image_payload(upload, settings)).image

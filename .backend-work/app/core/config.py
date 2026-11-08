@@ -16,6 +16,11 @@ class Settings:
     clerk_issuer: str = ""
     clerk_authorized_parties: tuple[str, ...] = ()
     clerk_audience: str | None = None
+    supabase_url: str = ""
+    supabase_publishable_key: str = ""
+    supabase_secret_key: str = ""
+    supabase_storage_bucket: str = "screening-images"
+    supabase_timeout_seconds: float = 15.0
     max_image_bytes: int = 10 * 1024 * 1024
     # Flutter's picker caps each side at 1600 px; allow larger API clients
     # while bounding the original-size Grad-CAM overlay allocations.
@@ -40,4 +45,20 @@ class Settings:
                 if party.strip()
             ),
             clerk_audience=os.getenv("CLERK_AUDIENCE") or None,
+            supabase_url=os.getenv("SUPABASE_URL", "").rstrip("/"),
+            supabase_publishable_key=os.getenv(
+                "SUPABASE_PUBLISHABLE_KEY", ""
+            ),
+            supabase_secret_key=os.getenv("SUPABASE_SECRET_KEY", ""),
+            supabase_storage_bucket=os.getenv(
+                "SUPABASE_STORAGE_BUCKET", "screening-images"
+            ),
+        )
+
+    @property
+    def persistence_configured(self) -> bool:
+        return bool(
+            self.supabase_url
+            and self.supabase_publishable_key
+            and self.supabase_secret_key
         )

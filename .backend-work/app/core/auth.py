@@ -82,4 +82,7 @@ def authenticated_user(request: Request) -> AuthenticatedUser:
         raise HTTPException(status_code=503, detail="Authentication unavailable")
     identity = verifier.verify(token)
     request.state.identity = identity
+    # Kept only in request-local state and excluded from logs. Persistence
+    # forwards this verified Clerk token so Supabase can evaluate RLS.
+    request.state.session_token = token
     return identity

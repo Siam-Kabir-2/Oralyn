@@ -94,11 +94,11 @@ abstract final class AppRoutes {
         ),
       map => const MapScreen(),
       history => const HistoryScreen(standalone: true),
-      historyDetail => HistoryDetailScreen(
-          result: settings.arguments is ScreeningResult
-              ? settings.arguments! as ScreeningResult
-              : MockData.results.first,
-        ),
+      historyDetail => settings.arguments is ScreeningResult
+          ? HistoryDetailScreen(
+              result: settings.arguments! as ScreeningResult,
+            )
+          : const HistoryScreen(standalone: true),
       education => const EducationScreen(),
       privacy => const PrivacyScreen(),
       about => const AboutScreen(),

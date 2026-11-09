@@ -3,15 +3,31 @@ import 'package:clerk_flutter/clerk_flutter.dart';
 
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../data/mock/mock_data.dart';
+import '../../../models/screening_result.dart';
+import '../../../services/screening_history_service.dart';
 import '../../widgets/common/app_components.dart';
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key, this.historyRepository});
+  final ScreeningHistoryRepository? historyRepository;
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  late final ScreeningHistoryRepository repository =
+      widget.historyRepository ?? ScreeningHistoryApiRepository();
+  late final Future<List<ScreeningResult>> history = repository.list();
+
+  @override
+  void dispose() {
+    if (widget.historyRepository == null) repository.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final recent = MockData.results.first;
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 112),
@@ -28,13 +44,29 @@ class HomeScreen extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, AppRoutes.history),
           ),
           const SizedBox(height: 12),
-          ScreeningCard(
-            result: recent,
-            onTap: () => Navigator.pushNamed(
-              context,
-              AppRoutes.historyDetail,
-              arguments: recent,
-            ),
+          FutureBuilder<List<ScreeningResult>>(
+            future: history,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const SizedBox(
+                  height: 90,
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              final results = snapshot.data ?? const <ScreeningResult>[];
+              if (results.isEmpty) {
+                return const _NoRecentScreening();
+              }
+              final recent = results.first;
+              return ScreeningCard(
+                result: recent,
+                onTap: () => Navigator.pushNamed(
+                  context,
+                  AppRoutes.historyDetail,
+                  arguments: recent,
+                ),
+              );
+            },
           ),
           const SizedBox(height: 12),
           Row(
@@ -67,6 +99,24 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class _NoRecentScreening extends StatelessWidget {
+  const _NoRecentScreening();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.divider),
+        ),
+        child: const Text(
+          'No saved screenings yet. Save a result to see it here.',
+          style: TextStyle(color: AppColors.secondaryText),
+        ),
+      );
 }
 
 class _HomeHeader extends StatelessWidget {

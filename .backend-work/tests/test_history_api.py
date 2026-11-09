@@ -134,9 +134,6 @@ class MemoryRepository:
             if not (row["id"] == screening_id and row["patient_id"] == owner_id)
         ]
 
-    async def restore_delete(self, screening_id, owner_id):
-        pass
-
 
 class HistoryApiTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import httpx
 
@@ -29,6 +29,20 @@ class SupabaseRepository:
     def __init__(self, settings, client: httpx.AsyncClient | None = None):
         if not settings.persistence_configured:
             raise PersistenceUnavailable("Supabase persistence is not configured")
+        parsed = urlparse(settings.supabase_url)
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.path not in ("", "/")
+            or parsed.query
+            or parsed.fragment
+            or parsed.username
+            or parsed.password
+            or not settings.supabase_publishable_key.startswith("sb_publishable_")
+            or not settings.supabase_secret_key.startswith("sb_secret_")
+            or settings.supabase_storage_bucket != "screening-images"
+        ):
+            raise PersistenceUnavailable("Invalid Supabase configuration")
         self.url = settings.supabase_url
         self.publishable_key = settings.supabase_publishable_key
         self.secret_key = settings.supabase_secret_key
@@ -195,9 +209,6 @@ class SupabaseRepository:
 
     async def finalize_delete(self, screening_id: str, owner_id: str) -> None:
         await self._delete_rpc("finalize_screening_delete", screening_id, owner_id)
-
-    async def restore_delete(self, screening_id: str, owner_id: str) -> None:
-        await self._delete_rpc("restore_screening_delete", screening_id, owner_id)
 
     async def _delete_rpc(
         self, function: str, screening_id: str, owner_id: str

@@ -293,37 +293,17 @@ as $$
     and lifecycle_state = 'deleting';
 $$;
 
-create or replace function public.restore_screening_delete(
-  p_screening_id uuid,
-  p_owner_id text
-)
-returns void
-language sql
-security definer
-set search_path = ''
-as $$
-  update public.screenings
-  set lifecycle_state = 'saved'
-  where id = p_screening_id
-    and patient_id = p_owner_id
-    and lifecycle_state = 'deleting';
-$$;
-
 revoke all on function public.save_screening(uuid, text, text, jsonb, jsonb)
   from public, anon, authenticated;
 revoke all on function public.begin_screening_delete(uuid, text)
   from public, anon, authenticated;
 revoke all on function public.finalize_screening_delete(uuid, text)
   from public, anon, authenticated;
-revoke all on function public.restore_screening_delete(uuid, text)
-  from public, anon, authenticated;
 grant execute on function public.save_screening(uuid, text, text, jsonb, jsonb)
   to service_role;
 grant execute on function public.begin_screening_delete(uuid, text)
   to service_role;
 grant execute on function public.finalize_screening_delete(uuid, text)
-  to service_role;
-grant execute on function public.restore_screening_delete(uuid, text)
   to service_role;
 
 insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)

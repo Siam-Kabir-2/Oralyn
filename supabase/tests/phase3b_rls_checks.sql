@@ -2,6 +2,7 @@
 -- These assertions use transaction-local JWT claims and roll back all data.
 begin;
 
+create extension if not exists pgtap;
 select plan(8);
 
 set local role service_role;
@@ -50,6 +51,7 @@ select throws_ok(
   null,
   'authenticated users cannot directly delete screenings'
 );
+set local role service_role;
 select is(
   (select count(*) from storage.buckets where id = 'screening-images' and not public),
   1::bigint,

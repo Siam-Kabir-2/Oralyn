@@ -225,7 +225,9 @@ class _DoctorCaseScreenState extends State<DoctorCaseScreen> {
     );
     if (leave == true && mounted) {
       setState(() => dirty = false);
-      Navigator.pop(context);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.pop(context);
+      });
     }
   }
 

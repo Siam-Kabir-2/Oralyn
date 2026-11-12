@@ -1,7 +1,7 @@
 -- Run only in development after the Phase 3C migration. Rolls back test rows.
 begin;
 create extension if not exists pgtap;
-select plan(17);
+select plan(26);
 
 set local role service_role;
 insert into public.profiles(clerk_user_id, application_role)
@@ -18,6 +18,21 @@ insert into public.doctor_profiles(
 insert into public.screenings(id, patient_id, idempotency_key) values
   ('30000000-0000-4000-8000-000000000001', 'user_p3ca', 'phase3c-owner-one'),
   ('30000000-0000-4000-8000-000000000002', 'user_p3cb', 'phase3c-owner-two');
+insert into public.image_assets(
+  screening_id, owner_id, asset_kind, object_path,
+  content_type, byte_size, sha256
+) values
+  ('30000000-0000-4000-8000-000000000001', 'user_p3ca', 'original',
+   'user_p3ca/30000000-0000-4000-8000-000000000001/original.png',
+   'image/png', 1, repeat('0', 64)),
+  ('30000000-0000-4000-8000-000000000002', 'user_p3cb', 'original',
+   'user_p3cb/30000000-0000-4000-8000-000000000002/original.png',
+   'image/png', 1, repeat('1', 64));
+insert into storage.objects(bucket_id, name) values
+  ('screening-images',
+   'user_p3ca/30000000-0000-4000-8000-000000000001/original.png'),
+  ('screening-images',
+   'user_p3cb/30000000-0000-4000-8000-000000000002/original.png');
 
 set local role authenticated;
 select set_config('request.jwt.claims',
@@ -33,17 +48,43 @@ select ok(not has_function_privilege('authenticated',
 select ok(not has_function_privilege('authenticated',
   'public.set_doctor_verification(text,text,text)', 'EXECUTE'),
   'public cannot verify a Doctor');
+select ok(not has_function_privilege('authenticated',
+  'public.assign_review_case(uuid,text,text)', 'EXECUTE'),
+  'public cannot assign a Doctor');
+select ok(not has_function_privilege('authenticated',
+  'public.revoke_review_assignment(uuid,text)', 'EXECUTE'),
+  'public cannot revoke an assignment');
+select throws_ok(
+  $$insert into public.case_assignments(review_request_id, doctor_id, assigned_by)
+    values (gen_random_uuid(), 'user_d3ca', 'self-assigned')$$,
+  '42501', null, 'patient cannot directly assign a case');
 select is(
   (select status from public.request_screening_review(
     '30000000-0000-4000-8000-000000000001')),
   'pending_assignment'::text, 'owner can request review');
+select results_eq(
+  $$select count(*)::bigint from storage.objects
+    where bucket_id = 'screening-images'$$,
+  array[1::bigint], 'patient sees only their private Storage object');
+select is_empty(
+  $$select name from storage.objects
+    where name like 'user_p3cb/%'$$,
+  'patient cannot read another patient Storage object');
 
 set local role service_role;
-insert into public.case_assignments(review_request_id, doctor_id, assigned_by)
-select id, 'user_d3ca', 'development-operator' from public.review_requests
-where screening_id = '30000000-0000-4000-8000-000000000001';
-update public.review_requests set status = 'assigned'
-where screening_id = '30000000-0000-4000-8000-000000000001';
+insert into public.review_requests(screening_id, patient_id)
+values ('30000000-0000-4000-8000-000000000002', 'user_p3cb');
+select throws_ok(
+  $$select public.assign_review_case(
+    (select id from public.review_requests
+      where screening_id = '30000000-0000-4000-8000-000000000002'),
+    'user_d3cb', 'development-operator')$$,
+  'P0001', 'doctor is not verified',
+  'trusted assignment rejects an unverified Doctor');
+select public.assign_review_case(
+  (select id from public.review_requests
+    where screening_id = '30000000-0000-4000-8000-000000000001'),
+  'user_d3ca', 'development-operator');
 
 set local role authenticated;
 select set_config('request.jwt.claims',
@@ -54,6 +95,10 @@ select is(public.can_review_screening('30000000-0000-4000-8000-000000000002'),
   false, 'verified unassigned Doctor cannot access another case');
 select results_eq('select count(*)::bigint from public.screenings',
   array[1::bigint], 'Doctor sees only assigned case');
+select results_eq(
+  $$select count(*)::bigint from storage.objects
+    where bucket_id = 'screening-images'$$,
+  array[1::bigint], 'assigned Doctor sees only the assigned private object');
 select lives_ok(
   $$select public.record_case_access(
     (select id from public.case_assignments where doctor_id = 'user_d3ca'))$$,
@@ -92,6 +137,9 @@ select set_config('request.jwt.claims',
   '{"sub":"user_d3ca","role":"authenticated"}', true);
 select is(public.can_review_screening('30000000-0000-4000-8000-000000000001'),
   false, 'suspension takes effect without token refresh');
+select is_empty(
+  $$select name from storage.objects where bucket_id = 'screening-images'$$,
+  'suspended Doctor loses private Storage access');
 
 set local role service_role;
 update public.doctor_profiles set verification_state = 'verified'
@@ -101,6 +149,9 @@ where doctor_id = 'user_d3ca';
 set local role authenticated;
 select is(public.can_review_screening('30000000-0000-4000-8000-000000000001'),
   false, 'assignment revocation takes effect without token refresh');
+select is_empty(
+  $$select name from storage.objects where bucket_id = 'screening-images'$$,
+  'revoked Doctor loses private Storage access');
 
 select * from finish();
 rollback;

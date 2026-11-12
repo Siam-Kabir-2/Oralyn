@@ -8,6 +8,7 @@ import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/screening_result.dart';
 import '../../../services/screening_history_service.dart';
+import '../../../services/review_request_service.dart';
 import '../../widgets/common/app_components.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -137,10 +138,84 @@ class HistoryDetailScreen extends StatefulWidget {
 class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
   bool explanation = false;
   bool deleting = false;
+  bool requestingReview = false;
+  ReviewRequestStatus? reviewRequest;
+  Map<String, dynamic>? doctorFeedback;
+  String? reviewError;
+  final reviewService = ReviewRequestService();
   late final ScreeningHistoryRepository repository =
       widget.repository ?? ScreeningHistoryApiRepository();
   late final Future<Uint8List?> image = _load(widget.result.imagePath);
   late final Future<Uint8List?> gradCam = _load(widget.result.gradCamAssetPath);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReviewStatus();
+  }
+
+  Future<void> _loadReviewStatus() async {
+    try {
+      final requests = await reviewService.list();
+      if (!mounted) return;
+      for (final item in requests) {
+        if (item.screeningId == widget.result.id) {
+          setState(() => reviewRequest = item);
+          break;
+        }
+      }
+      final feedback = await reviewService.feedback();
+      if (!mounted) return;
+      for (final item in feedback) {
+        if (item['screening_id'] == widget.result.id) {
+          setState(() => doctorFeedback = item);
+          break;
+        }
+      }
+    } catch (_) {
+      if (mounted)
+        setState(() => reviewError = 'Review status is unavailable.');
+    }
+  }
+
+  Future<void> _requestReview() async {
+    final consented = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Request Doctor review?'),
+        content: const Text(
+          'If you continue, your saved oral image, AI screening result, and '
+          'visual explanation may be shared with a verified Doctor assigned '
+          'to this case. The request will be stored for review tracking.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('I consent and request review')),
+        ],
+      ),
+    );
+    if (consented != true || !mounted) return;
+    setState(() => requestingReview = true);
+    try {
+      final result = await reviewService.request(widget.result.id);
+      if (mounted)
+        setState(() {
+          reviewRequest = result;
+          reviewError = null;
+        });
+    } on ReviewRequestException catch (error) {
+      if (mounted) setState(() => reviewError = error.message);
+    } catch (_) {
+      if (mounted)
+        setState(() => reviewError = 'Review request failed. Try again.');
+    } finally {
+      if (mounted) setState(() => requestingReview = false);
+    }
+  }
 
   Future<Uint8List?> _load(String? path) async {
     if (path == null) return null;
@@ -149,6 +224,7 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
 
   @override
   void dispose() {
+    reviewService.close();
     if (widget.repository == null) repository.close();
     super.dispose();
   }
@@ -253,6 +329,29 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
                 : _PrivateImage(future: gradCam, height: 220),
           ),
           const SizedBox(height: 24),
+          if (reviewRequest != null)
+            _SavedData(
+                label: 'Doctor review',
+                value: switch (reviewRequest!.status) {
+                  'pending_assignment' => 'Pending assignment',
+                  'in_review' => 'In review',
+                  'reviewed' => 'Reviewed',
+                  final status => status,
+                })
+          else
+            OutlinedButton.icon(
+              onPressed: requestingReview ? null : _requestReview,
+              icon: const Icon(Icons.rate_review_outlined),
+              label: Text(requestingReview
+                  ? 'Requesting review…'
+                  : 'Request Doctor review'),
+            ),
+          if (reviewError != null)
+            Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(reviewError!,
+                    style: const TextStyle(color: Colors.red))),
+          const SizedBox(height: 12),
           if (result.risk != RiskLevel.lowConcern)
             PrimaryButton(
               label: 'Find Care',
@@ -263,6 +362,27 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
               ),
               icon: Icons.medical_services_outlined,
             ),
+          if (doctorFeedback != null) ...[
+            const SizedBox(height: 20),
+            Text('Doctor feedback',
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            _SavedData(
+                label: 'Doctor',
+                value: doctorFeedback!['doctor_name'] as String? ?? ''),
+            _SavedData(
+                label: 'Specialization',
+                value: doctorFeedback!['specialization'] as String? ?? ''),
+            _SavedData(
+                label: 'Observations',
+                value: doctorFeedback!['observations'] as String? ?? ''),
+            _SavedData(
+                label: 'Recommendations',
+                value: doctorFeedback!['recommendations'] as String? ?? ''),
+            _SavedData(
+                label: 'Follow up',
+                value: doctorFeedback!['follow_up'] as String? ?? ''),
+          ],
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: deleting ? null : _delete,

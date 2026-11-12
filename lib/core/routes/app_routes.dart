@@ -7,9 +7,9 @@ import '../../models/screening_result.dart';
 import '../../models/screening_session.dart';
 import '../../views/screens/auth/auth_screens.dart';
 import '../../views/screens/doctors/doctor_screens.dart';
+import '../../views/screens/doctors/doctor_workspace.dart';
 import '../../views/screens/education/education_screen.dart';
 import '../../views/screens/history/history_screens.dart';
-import '../../views/screens/home/main_shell.dart';
 import '../../views/screens/onboarding/onboarding_screens.dart';
 import '../../views/screens/profile/profile_screens.dart';
 import '../../views/screens/referral/referral_screen.dart';
@@ -49,7 +49,7 @@ abstract final class AppRoutes {
       login => const LoginScreen(),
       register => const RegisterScreen(),
       forgotPassword => const ForgotPasswordScreen(),
-      home => const MainShell(),
+      home => const RoleHomeScreen(),
       preparation => const ScreeningPreparationScreen(),
       capture => const CaptureScreen(),
       preview => ImagePreviewScreen(
@@ -153,7 +153,7 @@ class _AuthRoute extends StatelessWidget {
         if (!active) {
           return const ExpiredSessionScreen();
         }
-        return isAuthRoute ? const MainShell() : child;
+        return isAuthRoute ? const RoleHomeScreen() : child;
       },
       signedOutBuilder: (_, __) =>
           isAuthRoute ? child : const LoginScreen(sessionExpired: true),

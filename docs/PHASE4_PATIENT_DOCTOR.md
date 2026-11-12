@@ -167,7 +167,7 @@ authorization and transaction boundary. Existing visual tokens and Patient
 navigation remain in place.
 
 - Baseline: 26 backend and 18 Flutter tests passed.
-- Current source: 29 backend tests and 26 Flutter tests passed. Flutter
+- Current source: 29 backend tests and 29 Flutter tests passed. Flutter
   analysis found no issues. Rerun after final source changes.
 - Real SMART-OM and BMIOCD checkpoints passed a synthetic-image API smoke:
   invalid image 400, real Grad-CAM generated, conditional verification
@@ -189,6 +189,12 @@ clinical summary, authenticated operator workflow, direct-read audit coverage,
 rate limits, retention/deletion policy and device accessibility review.
 Do not use identifiable patient data until those privacy controls are
 approved. Phase 5 integration should wait until these gates pass.
+
+The copy-paste development setup and complete acceptance sequence are in
+[`PHASE4_MANUAL_TESTING.md`](PHASE4_MANUAL_TESTING.md). The read-only
+`scripts/Test-Oralyn-Phase4Prerequisites.ps1` checker confirms local runtime
+files, private configuration presence and Phase 3C schema readiness without
+printing keys or changing database state.
 
 ## Git checkpoints
 

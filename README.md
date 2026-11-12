@@ -6,12 +6,14 @@ referral support, and nearby care discovery.
 The camera and gallery use the phone's native photo picker, and the captured
 photo is previewed throughout the screening flow. When screening starts, the
 photo is uploaded to the configured FastAPI prediction service. Authentication
-uses the existing Clerk development application; location, doctor search, and
-saved history still use local prototype data.
+uses the existing Clerk development application. Saved screening history and
+the Phase 4 review workflow use Supabase; nearby-care discovery remains
+prototype data.
 
 ## Prediction API configuration
 
-The app includes a development Cloudflare Quick Tunnel URL. The base URL can be
+The app includes a development Cloudflare Quick Tunnel URL that may have
+expired. The base URL can be
 changed on the phone from **Profile → Screening server**. If a screening
 request fails, the error screen also provides **Update Server URL**.
 
@@ -91,18 +93,21 @@ The project includes a local Flutter SDK in `.tooling/` (ignored by Git). Androi
 Studio and an emulator are not required; a physical Android phone can be used.
 
 ```powershell
-.\.tooling\flutter\bin\flutter.bat pub get
-.\.tooling\flutter\bin\flutter.bat run
+cd O:\
+& 'O:\.tooling\flutter\bin\flutter.bat' pub get
+& 'O:\.tooling\flutter\bin\flutter.bat' run
 ```
 
-Use `.\.tooling\flutter\bin\flutter.bat run` with a configured physical Android
-device when the Android command-line SDK is available.
+Use `O:\.tooling\flutter\bin\flutter.bat run` with a configured physical Android
+device when the Android command-line SDK is available. This workstation uses
+`O:\` as a space-free alias of the repository because the Dart native-asset
+hook does not handle the spaced workspace path correctly.
 
 Static verification:
 
 ```powershell
-.\.tooling\flutter\bin\flutter.bat analyze
-.\.tooling\flutter\bin\flutter.bat test
+& 'O:\.tooling\flutter\bin\flutter.bat' analyze
+& 'O:\.tooling\flutter\bin\flutter.bat' test
 ```
 
 Mock doctors, facilities, screening history, and result scenarios are configured
@@ -115,3 +120,7 @@ Build an installable Android APK:
 ```
 
 The generated file is `build/app/outputs/flutter-apk/app-release.apk`.
+
+For Phase 4 database setup, synthetic accounts, assignment/revocation checks,
+and the complete Patient-to-Doctor workflow, follow
+[`docs/PHASE4_MANUAL_TESTING.md`](docs/PHASE4_MANUAL_TESTING.md).

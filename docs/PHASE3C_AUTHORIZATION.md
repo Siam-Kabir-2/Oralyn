@@ -69,9 +69,12 @@ as production administration. Never expose the server key in Flutter.
 ## Tests and open gates
 
 The existing 26 backend tests and 18 Flutter tests passed before changes.
-After the initial foundation, 29 backend tests and 24 Flutter tests passed;
-Flutter analysis found no issues after the unused import was removed. These
-are synthetic tests. The Phase 3C SQL test file is prepared but has not run.
+The current source passes 29 backend tests and 29 Flutter tests; Flutter
+analysis reports no issues. These are synthetic tests. The Phase 3C SQL file
+now contains 26 authorization and private-Storage assertions, but it has not
+run. A read-only Data API probe confirmed that the Phase 3C tables and
+`profiles.application_role` are absent from the configured development
+project.
 
 Before enabling role routes on the phone: apply the migration to the existing
 development project, run the transactional SQL assertions, verify actual

@@ -10,9 +10,22 @@ terminal history or the Flutter application.
 
 The local Python environment, both model checkpoints, Cloudflare tunnel tool,
 Flutter SDK and private backend `.env` exist. The configured Supabase project
-has the Phase 3B schema, but the Phase 3C migration is not applied yet. On the
-current workstation Flutter also reports that the Android SDK is unavailable,
-so install or reconnect that SDK before running on the phone.
+`arokswvcjddbzwthtqkh` has the Phase 3B schema and the Phase 3C migration.
+The migration and authorization suite were verified in that development-only
+project on 2026-11-12. Android detection still needs to be rechecked before
+running the complete phone workflow.
+
+### Live Phase 3C verification record
+
+- The transaction-wrapped migration completed with `Success. No rows returned`.
+- All 26 pgtap assertions ran through `ok 26`; `finish()` returned no failure
+  diagnostics.
+- The SQL test transaction rolled back successfully. Read-only follow-up checks
+  found zero test profiles, screenings and Storage objects.
+- All six Phase 3C schema probes and all nine expected Phase 3C RPCs were
+  present. The prerequisite checker completed with every item marked `OK`.
+- This record applies only to Supabase project `arokswvcjddbzwthtqkh`. It does
+  not establish that the Android Patient-to-Doctor workflow has passed.
 
 Run the read-only prerequisite checker at any time:
 
@@ -23,8 +36,7 @@ powershell -ExecutionPolicy Bypass `
 ```
 
 It prints only file/configuration presence and schema status. It never prints
-keys and never changes the database. Before the migration it should report
-the six Phase 3C schema checks as `FAIL`; after a correct migration they should
+keys and never changes the database. The six Phase 3C schema checks should now
 all report `OK`.
 
 ## 1. Apply and verify Phase 3C in development

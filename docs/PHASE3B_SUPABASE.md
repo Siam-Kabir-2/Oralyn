@@ -1,8 +1,11 @@
 # Phase 3B: Supabase screening history
 
-Status: implementation and synthetic integration tests complete; live project
-configuration, migration, RLS assertions, and authenticated save/re-login/read
-have not yet been verified. Do not treat this phase as production ready.
+Status: implementation, live project configuration, migration, transactional
+RLS assertions, and automated regression tests are complete. Authenticated
+mobile save/logout/login/read, second-account isolation, and private-object
+round-trip verification remain open because no Android device or reusable
+Clerk test token was available at the end of the setup session. Do not treat
+this phase as production ready.
 
 ## Architecture
 
@@ -45,6 +48,11 @@ erDiagram
 ```
 
 ## Deployment to the existing projects
+
+The existing development projects were configured on 11 November 2026. The
+native Clerk Supabase integration is enabled, Supabase trusts the development
+Clerk domain as a third-party provider, and the migration below has been
+applied. These steps remain the deployment checklist for another environment.
 
 1. In the existing Clerk Dashboard application, activate **Connect with
    Supabase**. This adds `role: authenticated` to Clerk session tokens.
@@ -103,14 +111,28 @@ audit logging, pagination, and reconciliation remain before production.
 
 ## Tests observed on 11 November 2026
 
-- Backend synthetic contract suite: 26 tests passed after implementation.
+- Native Clerk integration: enabled for the existing development instance;
+  Supabase reported the Clerk third-party provider connection as enabled.
+- Live migration: applied successfully to the existing Supabase project. A
+  follow-up query confirmed all four tables, the private `screening-images`
+  bucket, and four public-table policies.
+- Live RLS suite: 8/8 pgtap assertions passed. The checks covered owner-only
+  reads, Clerk `sub` ownership, cross-user denial, blocked authenticated
+  inserts/deletes, private storage, and the 10 MB bucket limit. The transaction
+  rolled back its synthetic rows.
+- Backend synthetic contract suite: 26/26 tests passed with generated images
+  and mocked inference.
+- Real-checkpoint smoke: passed with a generated 256x256 image; invalid image
+  returned 400, Grad-CAM was available, deliberate Grad-CAM failure preserved
+  a 200 prediction, and conditional verification matched the primary class.
 - Flutter analysis: no issues.
-- Flutter suite: 18 tests passed after running through a temporary `O:` alias
-  because the native-assets test hook failed on the workspace path containing
-  a space. The alias points to the same workspace and is not part of the app.
-- Live Supabase migration, RLS checks, private object round trip, mobile
-  save/logout/login/retrieve, and actual project integration: **not run**
-  until existing project configuration is supplied.
+- Flutter suite: 18/18 tests passed through a temporary `O:` alias because the
+  generated package configuration references that alias for the local Flutter
+  SDK. The alias points to the same workspace and is not part of the app.
+- Still open: authenticated private-object round trip, mobile
+  save/logout/login/retrieve, second-account denial through the deployed API,
+  and cleanup confirmation. The connected Samsung device was unavailable and
+  no reusable Clerk session token was retained.
 
 Reference: [Supabase Clerk third-party auth](https://supabase.com/docs/guides/auth/third-party/clerk),
 [Clerk integration](https://clerk.com/docs/guides/development/integrations/databases/supabase),

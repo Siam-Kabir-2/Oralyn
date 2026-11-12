@@ -78,6 +78,122 @@ class SupabaseRepository:
             raise PersistenceUnavailable("Supabase service failed")
         return response
 
+    async def identity_profile(self, token: str, user_id: str) -> dict[str, Any]:
+        provision = await self._request(
+            "POST", f"{self.url}/rest/v1/rpc/ensure_patient_profile",
+            headers={**self._admin_headers(), "content-type": "application/json"},
+            json={"p_user_id": user_id},
+        )
+        if provision.status_code not in (200, 204):
+            raise PersistenceUnavailable("Could not provision profile")
+        response = await self._request(
+            "GET", f"{self.url}/rest/v1/profiles",
+            headers=self._user_headers(token),
+            params={
+                "select": "clerk_user_id,application_role,doctor_profiles(display_name,specialization,qualification,registration_reference,verification_state)",
+                "clerk_user_id": f"eq.{user_id}", "limit": "1",
+            },
+        )
+        if response.status_code != 200 or not response.json():
+            raise PersistenceUnavailable("Could not load profile")
+        return response.json()[0]
+
+    async def request_review(self, token: str, screening_id: str) -> dict[str, str]:
+        response = await self._request(
+            "POST", f"{self.url}/rest/v1/rpc/request_screening_review",
+            headers={**self._user_headers(token), "content-type": "application/json"},
+            json={"p_screening_id": screening_id},
+        )
+        if response.status_code == 403:
+            raise PermissionError("Screening is not eligible")
+        if response.status_code not in (200, 201):
+            raise PersistenceUnavailable("Could not request review")
+        return response.json()[0]
+
+    async def list_review_requests(self, token: str) -> list[dict[str, Any]]:
+        response = await self._request(
+            "GET", f"{self.url}/rest/v1/review_requests",
+            headers=self._user_headers(token),
+            params={
+                "select": "id,screening_id,status,consent_at,created_at",
+                "order": "created_at.desc", "limit": "100",
+            },
+        )
+        if response.status_code != 200:
+            raise PersistenceUnavailable("Could not load review requests")
+        return response.json()
+
+    async def my_doctor_feedback(self, token: str) -> list[dict[str, Any]]:
+        response = await self._request(
+            "POST", f"{self.url}/rest/v1/rpc/my_doctor_feedback",
+            headers={**self._user_headers(token), "content-type": "application/json"},
+            json={},
+        )
+        if response.status_code != 200:
+            raise PersistenceUnavailable("Could not load Doctor feedback")
+        return response.json()
+
+    async def list_assigned_cases(self, token: str) -> list[dict[str, Any]]:
+        response = await self._request(
+            "GET", f"{self.url}/rest/v1/case_assignments",
+            headers=self._user_headers(token),
+            params={
+                "select": "id,assigned_at,review_requests(id,screening_id,status,created_at)",
+                "order": "assigned_at.desc", "limit": "100",
+            },
+        )
+        if response.status_code != 200:
+            raise PersistenceUnavailable("Could not load assigned cases")
+        return response.json()
+
+    async def get_doctor_review(
+        self, token: str, assignment_id: str
+    ) -> dict[str, Any] | None:
+        response = await self._request(
+            "GET", f"{self.url}/rest/v1/doctor_reviews",
+            headers=self._user_headers(token),
+            params={"select": "id,assignment_id,observations,recommendations,follow_up,state,version,submitted_at",
+                    "assignment_id": f"eq.{assignment_id}", "limit": "1"},
+        )
+        if response.status_code != 200:
+            raise PersistenceUnavailable("Could not load Doctor review")
+        rows = response.json()
+        return rows[0] if rows else None
+
+    async def record_case_access(self, token: str, assignment_id: str) -> None:
+        response = await self._request(
+            "POST", f"{self.url}/rest/v1/rpc/record_case_access",
+            headers={**self._user_headers(token), "content-type": "application/json"},
+            json={"p_assignment_id": assignment_id},
+        )
+        if response.status_code == 403:
+            raise PermissionError("Case is not available")
+        if response.status_code not in (200, 204):
+            raise PersistenceUnavailable("Could not audit case access")
+
+    async def save_doctor_review(
+        self, token: str, assignment_id: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        response = await self._request(
+            "POST", f"{self.url}/rest/v1/rpc/save_doctor_review",
+            headers={**self._user_headers(token), "content-type": "application/json"},
+            json={
+                "p_assignment_id": assignment_id,
+                "p_expected_version": payload["expected_version"],
+                "p_observations": payload["observations"],
+                "p_recommendations": payload["recommendations"],
+                "p_follow_up": payload["follow_up"],
+                "p_submit": payload["submit"],
+            },
+        )
+        if response.status_code == 409:
+            raise PersistenceConflict("Review was changed by another request")
+        if response.status_code == 403:
+            raise PermissionError("Case is not available")
+        if response.status_code not in (200, 201):
+            raise PersistenceUnavailable("Could not save Doctor review")
+        return response.json()[0]
+
     async def list_screenings(self, token: str) -> list[dict[str, Any]]:
         response = await self._request(
             "GET",
@@ -203,6 +319,8 @@ class SupabaseRepository:
             headers={**self._admin_headers(), "content-type": "application/json"},
             json={"p_screening_id": screening_id, "p_owner_id": owner_id},
         )
+        if response.status_code == 409:
+            raise PersistenceConflict("Screening has a review request")
         if response.status_code not in (200, 201):
             raise PersistenceUnavailable("Could not begin screening deletion")
         return response.json()

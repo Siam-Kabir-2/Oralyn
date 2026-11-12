@@ -10,6 +10,7 @@ from app.ai.gradcam import GradCamRenderer
 from app.ai.models import ModelInference
 from app.api.routes import router
 from app.api.history_routes import router as history_router
+from app.api.case_routes import router as case_router
 from app.api.upload import RequestSizeLimitMiddleware
 from app.core.config import Settings
 from app.core.auth import ClerkTokenVerifier
@@ -62,7 +63,7 @@ def create_app(
         CORSMiddleware,
         allow_origins=["http://127.0.0.1:8081"],
         allow_credentials=False,
-        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization"],
     )
     application.add_middleware(
@@ -70,6 +71,7 @@ def create_app(
     )
     application.include_router(router)
     application.include_router(history_router)
+    application.include_router(case_router)
     return application
 
 

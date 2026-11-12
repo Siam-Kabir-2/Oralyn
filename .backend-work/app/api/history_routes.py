@@ -161,5 +161,10 @@ async def delete_screening(
         return Response(status_code=204)
     except PersistenceUnavailable:
         raise _unavailable() from None
+    except PersistenceConflict:
+        raise HTTPException(
+            status_code=409,
+            detail="This screening has a review request and cannot be deleted yet.",
+        ) from None
     finally:
         await repository.close()

@@ -189,3 +189,11 @@ clinical summary, authenticated operator workflow, direct-read audit coverage,
 rate limits, retention/deletion policy and device accessibility review.
 Do not use identifiable patient data until those privacy controls are
 approved. Phase 5 integration should wait until these gates pass.
+
+## Git checkpoints
+
+- `63d72f7` — database roles, assignments, review RLS and SQL checks.
+- `333aeb5` — authenticated case API, persistence and backend tests.
+- `3b8bb0c` — Patient review consent, status and feedback UI.
+- `3d24318` — Doctor workspace, role routing and Flutter tests.
+- `d03a386` — Phase 3C and Phase 4 architecture documentation.

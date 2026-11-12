@@ -10,17 +10,18 @@ import '../../../services/screening_history_service.dart';
 import '../home/main_shell.dart';
 
 class RoleHomeScreen extends StatefulWidget {
-  const RoleHomeScreen({super.key});
+  const RoleHomeScreen({super.key, this.caseService});
+  final DoctorCaseService? caseService;
   @override
   State<RoleHomeScreen> createState() => _RoleHomeScreenState();
 }
 
 class _RoleHomeScreenState extends State<RoleHomeScreen> {
-  final service = DoctorCaseService();
+  late final service = widget.caseService ?? DoctorCaseService();
   late Future<Map<String, dynamic>> profile = service.profile();
   @override
   void dispose() {
-    service.close();
+    if (widget.caseService == null) service.close();
     super.dispose();
   }
 
@@ -38,6 +39,11 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
                                 onPressed: () =>
                                     setState(() => profile = service.profile()),
                                 child: const Text('Try again')),
+                            TextButton.icon(
+                                onPressed: () => Navigator.pushNamed(
+                                    context, AppRoutes.apiSettings),
+                                icon: const Icon(Icons.settings_ethernet),
+                                label: const Text('Screening server')),
                           ])
                         : const CircularProgressIndicator()));
           }
@@ -73,6 +79,11 @@ class _DoctorWorkspaceState extends State<DoctorWorkspace> {
     final verified = doctor?['verification_state'] == 'verified';
     return Scaffold(
       appBar: AppBar(title: const Text('Doctor workspace'), actions: [
+        IconButton(
+            tooltip: 'Screening server',
+            icon: const Icon(Icons.settings_ethernet),
+            onPressed: () =>
+                Navigator.pushNamed(context, AppRoutes.apiSettings)),
         IconButton(
             tooltip: 'Sign out',
             icon: const Icon(Icons.logout),
@@ -157,11 +168,16 @@ class _DoctorWorkspaceState extends State<DoctorWorkspace> {
                     subtitle: Text(
                         'Status: ${request['status']}\nAssigned: ${caseRow['assigned_at'] ?? ''}'),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                            builder: (_) => DoctorCaseScreen(
-                                assignmentId: caseRow['id'] as String))),
+                    onTap: () async {
+                      await Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                              builder: (_) => DoctorCaseScreen(
+                                  assignmentId: caseRow['id'] as String)));
+                      if (mounted) {
+                        setState(() => cases = service.cases());
+                      }
+                    },
                   ));
                 }),
               ]);

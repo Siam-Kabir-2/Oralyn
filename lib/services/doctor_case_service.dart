@@ -55,35 +55,55 @@ class DoctorCaseService {
     required String followUp,
     required bool submit,
   }) async {
-    final context = await _context();
-    final response = await _client
-        .put(
-          context.base.resolve('/doctor/cases/$assignmentId/review'),
-          headers: {
-            'authorization': 'Bearer ${context.token}',
-            'content-type': 'application/json'
-          },
-          body: jsonEncode({
-            'expected_version': expectedVersion,
-            'observations': observations,
-            'recommendations': recommendations,
-            'follow_up': followUp,
-            'submit': submit
-          }),
-        )
-        .timeout(const Duration(seconds: 20));
-    _check(response);
-    return jsonDecode(response.body) as Map<String, dynamic>;
+    try {
+      final context = await _context();
+      final response = await _client
+          .put(
+            context.base.resolve('/doctor/cases/$assignmentId/review'),
+            headers: {
+              'authorization': 'Bearer ${context.token}',
+              'content-type': 'application/json'
+            },
+            body: jsonEncode({
+              'expected_version': expectedVersion,
+              'observations': observations,
+              'recommendations': recommendations,
+              'follow_up': followUp,
+              'submit': submit
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      _check(response);
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } on TimeoutException {
+      throw const DoctorCaseException(
+          'The case service took too long to respond. Try again.');
+    } on http.ClientException {
+      throw const DoctorCaseException(
+          'Unable to reach the case service. Check your connection.');
+    } on FormatException {
+      throw const DoctorCaseException('The case service response is invalid.');
+    }
   }
 
   Future<Map<String, dynamic>> _get(String path) async {
-    final context = await _context();
-    final response = await _client.get(
-      context.base.resolve(path),
-      headers: {'authorization': 'Bearer ${context.token}'},
-    ).timeout(const Duration(seconds: 20));
-    _check(response);
-    return jsonDecode(response.body) as Map<String, dynamic>;
+    try {
+      final context = await _context();
+      final response = await _client.get(
+        context.base.resolve(path),
+        headers: {'authorization': 'Bearer ${context.token}'},
+      ).timeout(const Duration(seconds: 20));
+      _check(response);
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } on TimeoutException {
+      throw const DoctorCaseException(
+          'The case service took too long to respond. Try again.');
+    } on http.ClientException {
+      throw const DoctorCaseException(
+          'Unable to reach the case service. Check your connection.');
+    } on FormatException {
+      throw const DoctorCaseException('The case service response is invalid.');
+    }
   }
 
   void _check(http.Response response) {

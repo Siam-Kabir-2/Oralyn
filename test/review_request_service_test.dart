@@ -66,4 +66,19 @@ void main() {
         service.request('screening-1'), throwsA(isA<ReviewRequestException>()));
     expect(sent, isFalse);
   });
+
+  test('network failures become user-facing review errors', () async {
+    final client = MockClient((_) async {
+      throw http.ClientException('synthetic network failure');
+    });
+    final service = ReviewRequestService(
+        client: client,
+        predictionEndpoint: endpoint,
+        tokenProvider: () async => 'session-three');
+    await expectLater(
+      service.list(),
+      throwsA(isA<ReviewRequestException>().having(
+          (error) => error.message, 'message', contains('Unable to reach'))),
+    );
+  });
 }

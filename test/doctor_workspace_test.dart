@@ -6,6 +6,22 @@ import 'package:oralyn/services/doctor_case_service.dart';
 import 'package:oralyn/views/screens/doctors/doctor_workspace.dart';
 
 void main() {
+  testWidgets('role loading error links to screening server settings',
+      (tester) async {
+    final service = DoctorCaseService(
+      client: MockClient((_) async => http.Response('{}', 503)),
+      predictionEndpoint: Uri.parse('https://example.test/predict'),
+      tokenProvider: () async => 'synthetic-session',
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: RoleHomeScreen(caseService: service),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Account profile is unavailable.'), findsOneWidget);
+    expect(find.text('Screening server'), findsOneWidget);
+    service.close();
+  });
+
   testWidgets('unverified Doctor sees account state without fetching cases',
       (tester) async {
     var requests = 0;
@@ -33,6 +49,7 @@ void main() {
       ),
     ));
     expect(find.textContaining('Verification pending'), findsOneWidget);
+    expect(find.byTooltip('Screening server'), findsOneWidget);
     expect(find.text('No assigned cases yet.'), findsNothing);
     expect(requests, 0);
     service.close();

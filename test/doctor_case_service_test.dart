@@ -67,4 +67,19 @@ void main() {
         tokenProvider: () async => null);
     await expectLater(expired.cases(), throwsA(isA<DoctorCaseException>()));
   });
+
+  test('network failures become user-facing case errors', () async {
+    final client = MockClient((_) async {
+      throw http.ClientException('synthetic network failure');
+    });
+    final service = DoctorCaseService(
+        client: client,
+        predictionEndpoint: endpoint,
+        tokenProvider: () async => 'doctor-session');
+    await expectLater(
+      service.cases(),
+      throwsA(isA<DoctorCaseException>().having(
+          (error) => error.message, 'message', contains('Unable to reach'))),
+    );
+  });
 }

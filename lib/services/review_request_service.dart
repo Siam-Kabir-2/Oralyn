@@ -66,50 +66,83 @@ class ReviewRequestService {
   }
 
   Future<List<ReviewRequestStatus>> list() async {
-    final context = await _context();
-    final response = await _client.get(
-      context.base.resolve('/review-requests'),
-      headers: {'authorization': 'Bearer ${context.token}'},
-    ).timeout(const Duration(seconds: 20));
-    _check(response);
-    final body = jsonDecode(response.body);
-    if (body is! Map<String, dynamic> || body['items'] is! List) {
-      throw const FormatException('Review request list is invalid.');
+    try {
+      final context = await _context();
+      final response = await _client.get(
+        context.base.resolve('/review-requests'),
+        headers: {'authorization': 'Bearer ${context.token}'},
+      ).timeout(const Duration(seconds: 20));
+      _check(response);
+      final body = jsonDecode(response.body);
+      if (body is! Map<String, dynamic> || body['items'] is! List) {
+        throw const FormatException('Review request list is invalid.');
+      }
+      return List.unmodifiable((body['items'] as List).map((item) =>
+          ReviewRequestStatus.fromJson(item as Map<String, dynamic>)));
+    } on TimeoutException {
+      throw const ReviewRequestException(
+          'The review service took too long to respond. Try again.');
+    } on http.ClientException {
+      throw const ReviewRequestException(
+          'Unable to reach the review service. Check your connection.');
+    } on FormatException {
+      throw const ReviewRequestException(
+          'The review service response is invalid.');
     }
-    return List.unmodifiable((body['items'] as List).map(
-        (item) => ReviewRequestStatus.fromJson(item as Map<String, dynamic>)));
   }
 
   Future<List<Map<String, dynamic>>> feedback() async {
-    final context = await _context();
-    final response = await _client.get(
-      context.base.resolve('/feedback'),
-      headers: {'authorization': 'Bearer ${context.token}'},
-    ).timeout(const Duration(seconds: 20));
-    _check(response);
-    final body = jsonDecode(response.body);
-    if (body is! Map<String, dynamic> || body['items'] is! List) {
-      throw const FormatException('Doctor feedback is invalid.');
+    try {
+      final context = await _context();
+      final response = await _client.get(
+        context.base.resolve('/feedback'),
+        headers: {'authorization': 'Bearer ${context.token}'},
+      ).timeout(const Duration(seconds: 20));
+      _check(response);
+      final body = jsonDecode(response.body);
+      if (body is! Map<String, dynamic> || body['items'] is! List) {
+        throw const FormatException('Doctor feedback is invalid.');
+      }
+      return List.unmodifiable(
+          (body['items'] as List).cast<Map<String, dynamic>>());
+    } on TimeoutException {
+      throw const ReviewRequestException(
+          'The review service took too long to respond. Try again.');
+    } on http.ClientException {
+      throw const ReviewRequestException(
+          'Unable to reach the review service. Check your connection.');
+    } on FormatException {
+      throw const ReviewRequestException(
+          'The review service response is invalid.');
     }
-    return List.unmodifiable(
-        (body['items'] as List).cast<Map<String, dynamic>>());
   }
 
   Future<ReviewRequestStatus> request(String screeningId) async {
-    final context = await _context();
-    final response = await _client
-        .post(
-          context.base.resolve('/screenings/$screeningId/review-request'),
-          headers: {
-            'authorization': 'Bearer ${context.token}',
-            'content-type': 'application/json',
-          },
-          body: jsonEncode({'consent_to_share': true}),
-        )
-        .timeout(const Duration(seconds: 20));
-    _check(response);
-    return ReviewRequestStatus.fromJson(
-        jsonDecode(response.body) as Map<String, dynamic>);
+    try {
+      final context = await _context();
+      final response = await _client
+          .post(
+            context.base.resolve('/screenings/$screeningId/review-request'),
+            headers: {
+              'authorization': 'Bearer ${context.token}',
+              'content-type': 'application/json',
+            },
+            body: jsonEncode({'consent_to_share': true}),
+          )
+          .timeout(const Duration(seconds: 20));
+      _check(response);
+      return ReviewRequestStatus.fromJson(
+          jsonDecode(response.body) as Map<String, dynamic>);
+    } on TimeoutException {
+      throw const ReviewRequestException(
+          'The review service took too long to respond. Try again.');
+    } on http.ClientException {
+      throw const ReviewRequestException(
+          'Unable to reach the review service. Check your connection.');
+    } on FormatException {
+      throw const ReviewRequestException(
+          'The review service response is invalid.');
+    }
   }
 
   void _check(http.Response response) {

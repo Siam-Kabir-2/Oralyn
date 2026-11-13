@@ -1,6 +1,6 @@
 # Reconstructed Oralyn commit timeline
 
-These dates were assigned on 2026-11-13 at the project owner's request to display weekly progress beginning 2026-09-10. They are reconstructed presentation dates, not independently verified times when the work was committed. Both author and committer dates were changed. Commit order, messages and file trees were preserved; hashes changed. The original history remains at `codex/oralyn-original-dates-20261113` and `codex/oralyn-main-original-dates-20261113`.
+These dates were assigned on 2026-11-13 at the project owner's request to display weekly progress beginning 2026-09-10. They are reconstructed presentation dates, not independently verified times when the work was committed. Both author and committer dates were changed. Commit order, messages and file trees were preserved; hashes changed. The original history remains in local backup refs on the development workstation; the original hashes below are retained for audit.
 
 Week numbers start on 2026-09-10. Commit counts by week: week 1: 6, week 2: 3, week 3: 2, week 4: 2, week 5: 2, week 6: 2, week 7: 5, week 8: 11, week 9: 10, week 10: 14.
 

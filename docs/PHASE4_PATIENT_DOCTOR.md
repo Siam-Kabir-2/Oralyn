@@ -198,8 +198,8 @@ printing keys or changing database state.
 
 ## Git checkpoints
 
-- `63d72f7` — database roles, assignments, review RLS and SQL checks.
-- `333aeb5` — authenticated case API, persistence and backend tests.
-- `3b8bb0c` — Patient review consent, status and feedback UI.
-- `3d24318` — Doctor workspace, role routing and Flutter tests.
-- `d03a386` — Phase 3C and Phase 4 architecture documentation.
+- `65b1022` — database roles, assignments, review RLS and SQL checks.
+- `c05b0d6` — authenticated case API, persistence and backend tests.
+- `cf76545` — Patient review consent, status and feedback UI.
+- `9658d6c` — Doctor workspace, role routing and Flutter tests.
+- `f967594` — Phase 3C and Phase 4 architecture documentation.

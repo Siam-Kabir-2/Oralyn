@@ -21,6 +21,14 @@ if (-not (Test-Path -LiteralPath (Join-Path $backendSource 'main.py'))) {
     throw "Tracked backend source was not found at $backendSource"
 }
 
+# A previous Uvicorn instance can answer /health while the new process fails
+# to bind. Never attach a tunnel to an unknown or stale process.
+$existingListener = Get-NetTCPConnection `
+    -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
+if ($existingListener) {
+    throw 'Port 8000 is already in use. Stop the existing development server before starting Oralyn.'
+}
+
 # Keep the runtime secret and trained checkpoints outside the Git repository.
 # The child Uvicorn process inherits these paths, never the values in the logs.
 $env:ORALYN_ENV_FILE = Join-Path $backendRoot '.env'
@@ -48,6 +56,9 @@ try {
     $healthy = $false
     for ($attempt = 0; $attempt -lt 60; $attempt++) {
         Start-Sleep -Seconds 1
+        if ($server.HasExited) {
+            break
+        }
         try {
             $health = Invoke-RestMethod `
                 -Uri 'http://127.0.0.1:8000/health' `
@@ -59,12 +70,9 @@ try {
         } catch {
             # The model can take several seconds to load on CPU.
         }
-        if ($server.HasExited) {
-            break
-        }
     }
 
-    if (-not $healthy) {
+    if (-not $healthy -or $server.HasExited) {
         if (Test-Path -LiteralPath $serverError) {
             Get-Content -LiteralPath $serverError -Tail 80
         }

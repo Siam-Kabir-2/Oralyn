@@ -1,4 +1,5 @@
 -- Apply after Phase 3C. This migration does not grant client-side role writes.
+begin;
 alter table public.profiles drop constraint profiles_application_role;
 alter table public.profiles add constraint profiles_application_role
   check (application_role in ('patient', 'doctor', 'admin'));
@@ -87,3 +88,5 @@ revoke all on function public.update_my_doctor_profile(text,text,text,text,text,
   from public, anon, authenticated;
 grant execute on function public.update_my_doctor_profile(text,text,text,text,text,text)
   to service_role;
+
+commit;

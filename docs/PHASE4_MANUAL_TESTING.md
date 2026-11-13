@@ -140,15 +140,15 @@ ignored by Git. Stop the tunnel and server with **Ctrl+C** when testing ends.
 
 ## 4. Prepare Android
 
-Flutter currently cannot find an Android SDK. Install Android Studio or the
-Android command-line SDK with Platform Tools, then point Flutter to it. For a
-default Android Studio installation:
+This workstation has the Android SDK at `O:\.tooling\android-sdk` and JDK 17
+at `O:\.tooling\jdk-17`. Check the configuration before connecting a phone:
 
 ```powershell
 cd O:\
 & 'O:\.tooling\flutter\bin\flutter.bat' config `
-  --android-sdk "$env:LOCALAPPDATA\Android\Sdk"
-& 'O:\.tooling\flutter\bin\flutter.bat' doctor --android-licenses
+  --android-sdk 'O:\.tooling\android-sdk'
+& 'O:\.tooling\flutter\bin\flutter.bat' config `
+  --jdk-dir 'O:\.tooling\jdk-17'
 & 'O:\.tooling\flutter\bin\flutter.bat' doctor -v
 ```
 
@@ -387,7 +387,7 @@ select public.set_doctor_verification(
 Run from the repository root:
 
 ```powershell
-Push-Location 'D:\System Project\.backend-work'
+Push-Location 'D:\System Project\backend'
 & 'D:\oralyn-backend\.venv\Scripts\python.exe' `
   -m unittest discover -s .\tests -v
 Pop-Location
@@ -398,7 +398,7 @@ Push-Location O:\
 Pop-Location
 
 $env:ORALYN_MODEL_DIR = 'D:\oralyn-backend\models'
-Push-Location .\.backend-work
+Push-Location .\backend
 & 'D:\oralyn-backend\.venv\Scripts\python.exe' `
   .\backend_gradcam_smoke_test.py
 Pop-Location

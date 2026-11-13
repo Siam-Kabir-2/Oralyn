@@ -1,7 +1,11 @@
+param(
+    [string]$RuntimeRoot = 'D:\oralyn-backend'
+)
+
 $ErrorActionPreference = 'Stop'
 
-$backendRoot = 'D:\oralyn-backend'
-$backendSource = Join-Path $PSScriptRoot '.backend-work'
+$backendRoot = $RuntimeRoot
+$backendSource = Join-Path $PSScriptRoot 'backend'
 $pythonPath = Join-Path $backendRoot '.venv\Scripts\python.exe'
 $cloudflaredPath = Join-Path $backendRoot 'cloudflared.exe'
 $serverOutput = Join-Path $PSScriptRoot 'oralyn-server.log'

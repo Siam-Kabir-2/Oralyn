@@ -6,7 +6,7 @@ For Md. Shahidur Rahman. Implement on `feature/admin-module` from the shared int
 
 One Clerk application authenticates Patients, Doctors and Admins. Flutter obtains a Clerk session token and sends it to FastAPI. FastAPI verifies the token, then resolves the application role from `public.profiles`. Supabase PostgreSQL holds Doctor profiles, screening review requests, case assignments and reviews. Oral images remain in private Storage. Never accept a client-provided role or operator ID as authority.
 
-The Phase 3C schema is in `supabase/migrations/202611120001_phase3c_authorization.sql`. The Doctor onboarding extension is `supabase/migrations/202611130001_doctor_onboarding.sql`; **it is not applied to the development database yet**. Coordinate its reviewed application before integrating the Admin UI. It adds `admin` to `profiles.application_role`, `doctor_profiles.workplace`, and service-role-only Doctor application/profile functions. It does not add Admin endpoints or policies.
+The Phase 3C schema is in `supabase/migrations/202611120001_phase3c_authorization.sql`. The Doctor onboarding extension is `supabase/migrations/202611130001_doctor_onboarding.sql`; it was applied to the authorized development project `arokswvcjddbzwthtqkh` on 2026-11-14 and both SQL suites passed. Do not apply it there again. It adds `admin` to `profiles.application_role`, `doctor_profiles.workplace`, and service-role-only Doctor application/profile functions. It does not add Admin endpoints or policies.
 
 ## Trusted Admin authentication
 

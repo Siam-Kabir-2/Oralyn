@@ -1,6 +1,6 @@
 # Doctor onboarding implementation and verification
 
-Branch: `feature/doctor-onboarding`. This work extends the Phase 4 Patient/Doctor review system. It does not change model checkpoints, preprocessing, prediction contract, clinical guidance or existing case authorization. No migration was applied remotely and no production data was used.
+Branch: `feature/doctor-onboarding`. This work extends the Phase 4 Patient/Doctor review system. It does not change model checkpoints, preprocessing, prediction contract, clinical guidance or existing case authorization. The migration was applied only to the authorized, disposable development project `arokswvcjddbzwthtqkh`; no other Supabase project was changed.
 
 ## Changes and reasons
 
@@ -12,7 +12,7 @@ Branch: `feature/doctor-onboarding`. This work extends the Phase 4 Patient/Docto
 | Professional profile | `GET/PUT /doctor/profile` loads the authenticated Doctor's own record. The server validates editable fields. A changed verified profile returns to pending and clears approval metadata. | Doctors cannot edit role, approval state or assignments through this API. Existing RLS blocks pending/suspended case reads. |
 | Verified directory | Patient Find Care fetches sanitized, verified professional profiles through authenticated `GET /doctors`. | The view does not use fabricated Doctor credentials or expose Clerk IDs, registration references or approval metadata. Referral/map demo data remains a separate prototype. |
 | Communication UI | Saved screening details show a disabled “Request chat · Coming Soon” control. Doctor workspace links to a static Messages screen with a disabled composer. | Existing structured reviews remain real; no fake requests, approvals, messages or chat tables exist. |
-| Database | New transaction-wrapped migration extends the Phase 3C schema with `admin`, `workplace` and service-role-only application/profile RPCs. | Preserves Phase 3C ownership, RLS and assignment policy. The migration must be reviewed and applied to the development project before new account flows are live. |
+| Database | Transaction-wrapped migration extends the Phase 3C schema with `admin`, `workplace` and service-role-only application/profile RPCs. | Preserves Phase 3C ownership, RLS and assignment policy. Applied to the authorized development project and checked with both SQL suites. |
 
 ## API and database contracts
 
@@ -29,16 +29,17 @@ FastAPI verifies Clerk tokens. Supabase RPCs are callable with the server secret
 - Baseline: 29 backend tests and 29 Flutter tests passed after restoring the local `O:` workspace alias and refreshing Flutter generated files.
 - Current source: 33 backend unit/integration tests passed; 35 Flutter tests passed; `flutter analyze --no-pub` found no issues. Tests use synthetic or mocked records. The role-transition test exposed and confirmed a Future-returning setState retry bug; all affected refresh/retry callbacks were fixed. The local test runner required localhost socket access outside the restricted sandbox.
 - Real-checkpoint smoke: passed with `ORALYN_MODEL_DIR=D:\oralyn-backend\models`, using a generated image. Invalid-image rejection, Grad-CAM availability/failure tolerance and conditional model chaining passed.
-- New `supabase/tests/doctor_onboarding_checks.sql`: **not executed**. It contains 13 rollback-only pgtap assertions for role provisioning, pending state, RPC grants, own-profile RLS and re-verification. Run only after applying the new migration to an authorized development database.
-- Physical Android registration, login, approval, role restoration and full case flow: **not tested in this change**. Do not treat the new Doctor application as live-ready until the migration and device verification pass.
+- On 2026-11-14, the transaction-wrapped Doctor onboarding migration completed in the authorized development project `arokswvcjddbzwthtqkh`. Read-only checks confirmed `doctor_profiles.workplace`, both new RPCs, the `admin` role constraint and no `authenticated` execute grant on the application RPC.
+- `supabase/tests/doctor_onboarding_checks.sql`: **13/13 passed**, with `finish()` reporting `ALL 13 PASSED`. The existing Phase 3C suite also passed **26/26** after the migration, with `finish()` reporting `ALL 26 PASSED`. Both test transactions rolled back; follow-up checks found zero test profiles, Doctors, screenings and Storage objects.
+- The prerequisite checker passed all file, configuration and six remote Phase 3C schema checks. The current FastAPI process exposes the new Doctor routes; local and tunnel requests without authentication return 401 for `/doctors`. The server launcher now rejects an occupied port instead of reporting an older server as healthy.
+- Physical Android registration, login, approval, role restoration and full case flow: **not tested by this verification**. The user will perform the device checks. The application is not live-ready until those checks pass.
 
 ## Remaining integration and security work
 
-1. Review and apply `supabase/migrations/202611130001_doctor_onboarding.sql` to the authorized development project only; check existing schema/backup first. Then run `supabase/tests/doctor_onboarding_checks.sql` and the existing Phase 3C assertions using synthetic records.
-2. Implement a trusted Admin API and provisioning process. The present Admin landing is intentionally inert. Document who can approve/reject/suspend and audit each operation.
-3. Verify the full Android path with a new synthetic applicant: Clerk registration, application, pending status, trusted approval, dashboard, profile edit returning to pending, and case denial during pending/suspended states. Check a second Patient cannot read another's case or private images.
-4. The referral/map screens still contain clearly separate mock care-facility content. Do not present those records as verified Oralyn Doctors; future location integration needs its own authoritative source and consent policy.
-5. Chat is only a UI prototype. Future server and data design is in `docs/FUTURE_CHAT_ARCHITECTURE.md`.
+1. Implement a trusted Admin API and provisioning process. The present Admin landing is intentionally inert. Document who can approve/reject/suspend and audit each operation.
+2. Verify the full Android path with a new synthetic applicant: Clerk registration, application, pending status, trusted approval, dashboard, profile edit returning to pending, and case denial during pending/suspended states. Check a second Patient cannot read another's case or private images.
+3. The referral/map screens still contain clearly separate mock care-facility content. Do not present those records as verified Oralyn Doctors; future location integration needs its own authoritative source and consent policy.
+4. Chat is only a UI prototype. Future server and data design is in `docs/FUTURE_CHAT_ARCHITECTURE.md`.
 
 ## Local commands
 
@@ -56,4 +57,4 @@ $env:ORALYN_MODEL_DIR = 'D:\oralyn-backend\models'
 & 'D:\oralyn-backend\.venv\Scripts\python.exe' .\backend_gradcam_smoke_test.py
 ```
 
-For Android/server setup, use `docs/PHASE4_MANUAL_TESTING.md`. It remains applicable to existing review workflows; apply the new migration before testing Doctor registration/profile.
+For Android/server setup, use `docs/PHASE4_MANUAL_TESTING.md`. The Doctor onboarding migration is already applied to the named development project; do not run it there again.

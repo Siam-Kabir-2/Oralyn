@@ -12,8 +12,10 @@ The local Python environment, both model checkpoints, Cloudflare tunnel tool,
 Flutter SDK and private backend `.env` exist. The configured Supabase project
 `arokswvcjddbzwthtqkh` has the Phase 3B schema and the Phase 3C migration.
 The migration and authorization suite were verified in that development-only
-project on 2026-11-12. Android detection still needs to be rechecked before
-running the complete phone workflow.
+project on 2026-11-12. The separate Doctor onboarding migration was applied
+to the same project on 2026-11-14; its 13 assertions and the existing 26
+Phase 3C assertions both passed afterward. The current backend exposes the
+Doctor routes. The complete phone workflow remains for manual verification.
 
 ### Live Phase 3C verification record
 
@@ -39,41 +41,22 @@ It prints only file/configuration presence and schema status. It never prints
 keys and never changes the database. The six Phase 3C schema checks should now
 all report `OK`.
 
-## 1. Verify Phase 3C and apply Doctor onboarding in development
+## 1. Check the development database
 
 This step changes the selected Supabase database. In the Supabase Dashboard,
 check the project name and URL carefully and continue only if it is the
 existing Oralyn development project. Stop if there is any doubt.
 
-Phase 3C has already been applied to project `arokswvcjddbzwthtqkh` and its
-26 assertions passed. **Do not run the Phase 3C migration again.** The Doctor
-onboarding migration below is a separate, one-time change. Check that the
-Dashboard project reference is `arokswvcjddbzwthtqkh`; the Dashboard may label
-its `main` branch **PRODUCTION** even though this project is used only for
-disposable development records. On the Free plan there are no scheduled
-backups. Export any development data you need to retain before proceeding.
+Phase 3C and Doctor onboarding are already applied to project
+`arokswvcjddbzwthtqkh`. **Do not run either migration there again.** The
+Dashboard may label its `main` branch **PRODUCTION** even though the owner
+confirmed this project contains disposable development data. On the Free plan
+there are no scheduled backups. Verify the project reference before running
+even read-only checks. A fresh development project would need both migrations
+in order, with separate authorization and a backup assessment.
 
-1. Open **Supabase Dashboard → SQL Editor → New query** for that project.
-2. Copy the new migration from the repository:
-
-   ```powershell
-   Get-Content `
-     '.\supabase\migrations\202611130001_doctor_onboarding.sql' `
-     -Raw | Set-Clipboard
-   ```
-
-3. Confirm the SQL begins with `begin;` and ends with `commit;`. Paste it,
-   confirm the project reference again, then select **Run** once.
-4. Do not rerun it after success. Check `profiles.application_role` accepts
-   `admin`, `doctor_profiles.workplace` exists, and both
-   `apply_doctor_candidate` and `update_my_doctor_profile` exist. If SQL
-   reports an existing object or any other error, stop and inspect; do not
-   delete schema objects to force a retry.
-5. Copy `supabase/tests/doctor_onboarding_checks.sql` into a **new** SQL query
-   and run it. Expect 13 passing pgtap assertions, no `finish()` failures,
-   and a final `rollback` that removes its synthetic rows.
-
-Use this read-only query for step 4. All three booleans should be `true`, and
+Use this read-only query if you want to recheck the Doctor schema. All three
+booleans should be `true`, and
 the constraint definition should contain `admin`:
 
 ```sql
@@ -90,7 +73,12 @@ select
       and conname = 'profiles_application_role') as role_constraint;
 ```
 
-Copy the 13-assertion test file from the repository:
+On 2026-11-14, the Doctor onboarding migration returned `Success. No rows
+returned`; the new 13-assertion suite reported `ALL 13 PASSED`, and the
+Phase 3C suite reported `ALL 26 PASSED`. Both test transactions rolled back.
+A read-only check found zero test profiles, Doctors, screenings and Storage
+objects. To rerun the rollback-only 13-assertion test in this development
+project, copy it into a new SQL Editor query:
 
 ```powershell
 Get-Content '.\supabase\tests\doctor_onboarding_checks.sql' -Raw |
@@ -479,8 +467,8 @@ section 1. Do not describe it as passed until its pgtap output is visible.
 ## Final manual checklist
 
 1. Confirm the selected Supabase project is development.
-2. Apply the Phase 3C migration once.
-3. Run and observe all 26 SQL assertions passing.
+2. Confirm both migrations are already applied to project `arokswvcjddbzwthtqkh`; do not rerun them.
+3. The 13 Doctor and 26 Phase 3C assertions have passed; rerun the rollback-only suites only if you need another check.
 4. Run the prerequisite checker and confirm every item is `OK`.
 5. Start FastAPI and keep the Quick Tunnel window open.
 6. Configure Android, connect the phone and run Oralyn with the tunnel URL.

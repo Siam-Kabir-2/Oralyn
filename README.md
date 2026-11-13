@@ -76,7 +76,7 @@ $env:ORALYN_MODEL_DIR = 'D:\oralyn-backend\models'
 Pop-Location
 ```
 
-The backend tests use synthetic images and mocked inference. The checkpoint smoke test needs the private model files. The database pgtap suite is in `supabase/tests/`; run it only against an authorized development project. The current development project passed all 26 Phase 3C SQL assertions. The full Android Patient-to-Doctor workflow still requires manual verification.
+The backend tests use synthetic images and mocked inference. The checkpoint smoke test needs the private model files. The database pgtap suite is in `supabase/tests/`; run it only against an authorized development project. The current development project passed all 13 Doctor onboarding and 26 Phase 3C SQL assertions after the Doctor migration. The full Android Patient-to-Doctor workflow still requires manual verification.
 
 Build an Android APK with `flutter build apk --release`; Flutter writes it to `build/app/outputs/flutter-apk/app-release.apk`. The current development release uses an Android debug signing certificate and is not suitable for production distribution.
 

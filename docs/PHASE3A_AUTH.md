@@ -6,7 +6,7 @@ configuration task. No patient records or Supabase integration were added.
 
 ## Compatibility and existing application
 
-- Existing branch baseline: `codex/oralyn-backend-phase2`, clean before work.
+- Baseline: the completed Phase 2 backend integration, with a clean working tree.
 - Local Flutter 3.47.5 and Dart 3.13.4 meet `clerk_flutter` 0.0.18-beta's
   Flutter 3.27.4 and Dart 3.6.2 minimums. The package is community maintained,
   beta, and supports Android/iOS/macOS; it does not support the available

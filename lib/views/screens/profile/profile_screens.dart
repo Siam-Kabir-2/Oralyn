@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:clerk_flutter/clerk_flutter.dart';
+import 'package:clerk_flutter/src/widgets/authentication/clerk_forgotten_password_panel.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/routes/app_routes.dart';
@@ -37,12 +39,12 @@ class ProfileScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Ariana Khan',
+                      ClerkAuth.userOf(context)?.name ?? 'Oralyn member',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      'demo@oralyn.health',
+                      ClerkAuth.userOf(context)?.email ?? '',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -64,8 +66,8 @@ class ProfileScreen extends StatelessWidget {
               ),
               _ProfileItem(
                 Icons.lock_outline,
-                'Change password',
-                () => _message(context, 'Password change is simulated.'),
+                'Reset password',
+                () => ClerkForgottenPasswordPanel.show(context),
               ),
             ],
           ),
@@ -133,11 +135,19 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           TextButton.icon(
-            onPressed: () => Navigator.pushNamedAndRemoveUntil(
-              context,
-              AppRoutes.login,
-              (_) => false,
-            ),
+            onPressed: () async {
+              try {
+                await ClerkAuth.of(context, listen: false).signOut();
+                if (context.mounted) {
+                  Navigator.pushNamedAndRemoveUntil(
+                      context, AppRoutes.login, (_) => false);
+                }
+              } catch (_) {
+                if (context.mounted) {
+                  _message(context, 'Could not sign out. Please try again.');
+                }
+              }
+            },
             icon: const Icon(Icons.logout_rounded),
             label: const Text('Sign Out'),
             style: TextButton.styleFrom(foregroundColor: AppColors.danger),
@@ -268,9 +278,9 @@ class PrivacyScreen extends StatelessWidget {
                   'The selected image is kept in app memory and sent to the configured prediction service for analysis. Backend retention depends on the service deployment policy.',
             ),
             const _Policy(
-              title: 'No account backend',
+              title: 'Account authentication',
               body:
-                  'Login and registration states are simulated locally. Credentials are not transmitted.',
+                  'Clerk handles account registration, sign-in, and session management. Oralyn sends a short-lived session token with screening requests.',
             ),
             const _Policy(
               title: 'No real location tracking',

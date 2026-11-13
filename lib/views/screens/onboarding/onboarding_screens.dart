@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:clerk_flutter/clerk_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/routes/app_routes.dart';
@@ -24,7 +25,12 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
     Future<void>.delayed(const Duration(milliseconds: 1500), () {
       if (mounted)
-        Navigator.pushReplacementNamed(context, AppRoutes.onboarding);
+        Navigator.pushReplacementNamed(
+          context,
+          ClerkAuth.of(context, listen: false).isSignedIn
+              ? AppRoutes.home
+              : AppRoutes.onboarding,
+        );
     });
   }
 

@@ -4,10 +4,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
-import '../core/config/api_config.dart';
 import '../models/screening_result.dart';
 import '../models/screening_session.dart';
 import 'api_settings_service.dart';
+import 'clerk_session_provider.dart';
 
 enum PredictionErrorKind {
   configuration,
@@ -41,28 +41,29 @@ class ScreeningApiService implements ScreeningAnalysisService {
   ScreeningApiService({
     http.Client? client,
     Uri? endpoint,
-    String? apiKey,
+    Future<String?> Function()? tokenProvider,
     ApiSettingsService? settingsService,
     this.timeout = const Duration(seconds: 45),
   })  : _client = client ?? http.Client(),
         _endpointOverride = endpoint,
         _settingsService = settingsService ?? ApiSettingsService(),
-        _apiKey = apiKey ?? ApiConfig.apiKey;
+        _tokenProvider = tokenProvider ?? ClerkSessionProvider.token;
 
   static const maxUploadBytes = 10 * 1024 * 1024;
 
   final http.Client _client;
   final Uri? _endpointOverride;
   final ApiSettingsService _settingsService;
-  final String _apiKey;
+  final Future<String?> Function() _tokenProvider;
   final Duration timeout;
 
   @override
   Future<ScreeningResult> analyze(ScreeningPhoto photo) async {
-    if (_apiKey.trim().isEmpty) {
+    final token = await _tokenProvider();
+    if (token == null || token.isEmpty) {
       throw const PredictionException(
-        PredictionErrorKind.configuration,
-        'The screening service API key is not configured.',
+        PredictionErrorKind.unauthorized,
+        'Your session has ended. Sign in and try again.',
       );
     }
     if (photo.bytes.isEmpty) {
@@ -83,7 +84,7 @@ class ScreeningApiService implements ScreeningAnalysisService {
         _endpointOverride ?? await _settingsService.getPredictionUri();
     final imageMediaType = _imageMediaType(photo);
     final request = http.MultipartRequest('POST', endpoint)
-      ..headers['x-api-key'] = _apiKey
+      ..headers['authorization'] = 'Bearer $token'
       ..files.add(
         http.MultipartFile.fromBytes(
           'image',
@@ -293,8 +294,7 @@ class ScreeningApiService implements ScreeningAnalysisService {
     if (statusCode == 401 || statusCode == 403) {
       return const PredictionException(
         PredictionErrorKind.unauthorized,
-        'The screening service rejected the API key. Check the app '
-        'configuration and try again.',
+        'Your session is no longer authorized. Sign in and try again.',
       );
     }
     if (statusCode == 413) {

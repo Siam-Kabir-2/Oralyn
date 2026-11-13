@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -8,17 +9,73 @@ import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/screening_result.dart';
 import '../../../models/screening_session.dart';
+import '../../../services/screening_history_service.dart';
 import '../../widgets/common/app_components.dart';
 
 class ResultScreen extends StatefulWidget {
-  const ResultScreen({super.key, required this.outcome});
+  const ResultScreen({
+    super.key,
+    required this.outcome,
+    this.historyRepository,
+  });
   final ScreeningOutcome outcome;
+  final ScreeningHistoryRepository? historyRepository;
 
   @override
   State<ResultScreen> createState() => _ResultScreenState();
 }
 
 class _ResultScreenState extends State<ResultScreen> {
+  late final ScreeningHistoryRepository historyRepository =
+      widget.historyRepository ?? ScreeningHistoryApiRepository();
+  late final String idempotencyKey = _newIdempotencyKey();
+  bool saving = false;
+  bool saved = false;
+
+  String _newIdempotencyKey() {
+    final random = Random.secure();
+    final bytes = Uint8List.fromList(
+      List<int>.generate(18, (_) => random.nextInt(256)),
+    );
+    return 'mobile_${base64UrlEncode(bytes).replaceAll('=', '')}';
+  }
+
+  @override
+  void dispose() {
+    if (widget.historyRepository == null) historyRepository.close();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final photo = widget.outcome.photo;
+    if (photo == null || saving || saved) return;
+    setState(() => saving = true);
+    try {
+      await historyRepository.save(photo, idempotencyKey: idempotencyKey);
+      if (!mounted) return;
+      setState(() {
+        saving = false;
+        saved = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Screening saved to your private history.')),
+      );
+    } on ScreeningHistoryException catch (error) {
+      if (!mounted) return;
+      setState(() => saving = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
+    } on FormatException {
+      if (!mounted) return;
+      setState(() => saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('The saved result could not be verified.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final result = widget.outcome.result;
@@ -89,13 +146,19 @@ class _ResultScreenState extends State<ResultScreen> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Saving results is not available yet.'),
-                      ),
+                    onPressed:
+                        widget.outcome.photo == null || saved ? null : _save,
+                    icon: saving
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(saved
+                            ? Icons.bookmark_added_rounded
+                            : Icons.bookmark_border_rounded),
+                    label: Text(
+                      saving ? 'Saving…' : (saved ? 'Saved' : 'Save result'),
                     ),
-                    icon: const Icon(Icons.bookmark_border_rounded),
-                    label: const Text('Save result'),
                   ),
                 ),
                 const SizedBox(width: 10),

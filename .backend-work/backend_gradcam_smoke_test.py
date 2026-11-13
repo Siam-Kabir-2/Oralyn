@@ -1,134 +1,101 @@
+"""Real-checkpoint API smoke test using a generated image, never patient data."""
+
 import asyncio
 import io
 import os
+import time
 from pathlib import Path
-import sys
 
-import numpy as np
-
-from fastapi import HTTPException, UploadFile
+import httpx
 from PIL import Image
-from starlette.datastructures import Headers
 
-backend_root = Path(
-    os.environ.get("ORALYN_BACKEND_ROOT", r"D:\oralyn-backend")
-)
-sys.path.insert(0, str(backend_root))
-import main
+from app.core.config import Settings
+from app.main import create_app
+from app.core.auth import AuthenticatedUser
 
 
-invalid_upload = UploadFile(
-    file=io.BytesIO(b"not an image"),
-    filename="invalid.png",
-    headers=Headers({"content-type": "image/png"}),
-)
-try:
-    asyncio.run(main.predict(invalid_upload, main.API_KEY))
-except HTTPException as error:
-    assert error.status_code == 400
-else:
-    raise AssertionError("Invalid image was accepted")
-
-original_generate_gradcam = main.generate_gradcam
+class _SmokeTokenVerifier:
+    def verify(self, token):
+        assert token == "synthetic-smoke-session"
+        return AuthenticatedUser("user_synthetic", "sess_synthetic")
 
 
-def fail_gradcam(*_args, **_kwargs):
-    raise RuntimeError("intentional smoke-test failure")
+class _FailGradCam:
+    def render(self, *_args):
+        raise RuntimeError("intentional smoke-test failure")
 
 
-main.generate_gradcam = fail_gradcam
-image_buffer = io.BytesIO()
-Image.new("RGB", (256, 256), color=(180, 120, 115)).save(
-    image_buffer,
-    format="PNG",
-)
-upload = UploadFile(
-    file=io.BytesIO(image_buffer.getvalue()),
-    filename="generated-smoke-test.png",
-    headers=Headers({"content-type": "image/png"}),
-)
-response = asyncio.run(main.predict(upload, main.API_KEY))
-
-main.generate_gradcam = original_generate_gradcam
-payload = response
-assert payload["gradcam"] == {"available": False}, payload["gradcam"]
-assert payload["primary_prediction"] in main.primary_classes
-
-real_upload = UploadFile(
-    file=io.BytesIO(image_buffer.getvalue()),
-    filename="generated-smoke-test.png",
-    headers=Headers({"content-type": "image/png"}),
-)
-real_payload = asyncio.run(main.predict(real_upload, main.API_KEY))
-assert real_payload["gradcam"]["available"] is True
-assert real_payload["gradcam"]["image_base64"].startswith(
-    "data:image/jpeg;base64,"
-)
-
-print("invalid_image_status=400")
-print("gradcam_failure_prediction_status=200")
-print("gradcam_failure_available=false")
-print("real_gradcam_available=true")
+def _synthetic_png():
+    buffer = io.BytesIO()
+    Image.new("RGB", (256, 256), color=(180, 120, 115)).save(buffer, "PNG")
+    return buffer.getvalue()
 
 
-# Exercise the orchestration branches without relying on a synthetic image's
-# unpredictable model classification. The original model functions are restored
-# before the process exits.
-original_multiclass = main.predict_multiclass
-original_binary = main.predict_binary
-original_gradcam = main.generate_gradcam
-binary_calls = 0
-primary_class = "Normal"
-
-
-def stub_multiclass(_image_tensor):
-    return [{"class": primary_class, "score": 0.8}]
-
-
-def stub_binary(_image_tensor):
-    global binary_calls
-    binary_calls += 1
-    return [{"class": "Cancer", "score": 0.7}]
-
-
-def stub_gradcam(*_args, **_kwargs):
-    return np.zeros((7, 7), dtype=np.float32)
-
-
-def valid_upload():
-    return UploadFile(
-        file=io.BytesIO(image_buffer.getvalue()),
-        filename="generated-smoke-test.png",
-        headers=Headers({"content-type": "image/png"}),
+async def run():
+    default_root = Path(os.getenv("ORALYN_BACKEND_ROOT", Path(__file__).parent))
+    model_dir = Path(os.getenv("ORALYN_MODEL_DIR", default_root / "models"))
+    application = create_app(
+        Settings(model_dir=model_dir),
+        token_verifier=_SmokeTokenVerifier(),
     )
 
+    async with application.router.lifespan_context(application):
+        service = application.state.screening_service
+        assert service is not None
+        assert len(service.inference.primary_classes) == 4
+        assert len(service.inference.verification_classes) == 2
 
-try:
-    main.predict_multiclass = stub_multiclass
-    main.predict_binary = stub_binary
-    main.generate_gradcam = stub_gradcam
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=application),
+            base_url="http://testserver",
+        ) as client:
+            assert (await client.get("/health")).json() == {"status": "healthy"}
+            headers = {"authorization": "Bearer synthetic-smoke-session"}
+            invalid = await client.post(
+                "/predict",
+                headers=headers,
+                files={"image": ("synthetic.png", b"not an image", "image/png")},
+            )
+            assert invalid.status_code == 400
 
-    for primary_class in ("Normal", "Variation_from_Normal"):
-        payload = asyncio.run(main.predict(valid_upload(), main.API_KEY))
-        assert payload["cancer_verification"] == {"performed": False}
-        assert payload["gradcam"]["available"] is True
-    assert binary_calls == 0
+            image = _synthetic_png()
+            started = time.perf_counter()
+            response = await client.post(
+                "/predict",
+                headers=headers,
+                files={"image": ("synthetic.png", image, "image/png")},
+            )
+            elapsed_ms = round((time.perf_counter() - started) * 1000)
+            assert response.status_code == 200, response.status_code
+            payload = response.json()
+            assert payload["primary_prediction"] in service.inference.primary_classes
+            assert payload["gradcam"]["available"] is True
+            assert payload["gradcam"]["image_base64"].startswith(
+                "data:image/jpeg;base64,"
+            )
+            should_verify = payload["primary_prediction"] in {"OPMD", "Oral_Cancer"}
+            assert payload["cancer_verification"]["performed"] is should_verify
 
-    primary_class = "OPMD"
-    payload = asyncio.run(main.predict(valid_upload(), main.API_KEY))
-    assert binary_calls == 1
-    assert payload["cancer_verification"]["prediction"] == "Cancer"
-    assert payload["screening_status"] == "Prompt Specialist Review"
+            original_gradcam = service.gradcam
+            service.gradcam = _FailGradCam()
+            try:
+                fallback = await client.post(
+                    "/predict",
+                    headers=headers,
+                    files={"image": ("synthetic.png", image, "image/png")},
+                )
+            finally:
+                service.gradcam = original_gradcam
+            assert fallback.status_code == 200
+            assert fallback.json()["gradcam"] == {"available": False}
+            assert fallback.json()["primary_prediction"] in service.inference.primary_classes
 
-    primary_class = "Oral_Cancer"
-    payload = asyncio.run(main.predict(valid_upload(), main.API_KEY))
-    assert binary_calls == 2
-    assert payload["cancer_verification"]["performed"] is True
-finally:
-    main.predict_multiclass = original_multiclass
-    main.predict_binary = original_binary
-    main.generate_gradcam = original_gradcam
+    print("invalid_image_status=400")
+    print("real_gradcam_available=true")
+    print("gradcam_failure_prediction_status=200")
+    print("conditional_verification_matches_primary=true")
+    print(f"synthetic_screening_duration_ms={elapsed_ms}")
 
-print("verification_skipped_for=Normal,Variation_from_Normal")
-print("verification_performed_for=OPMD,Oral_Cancer")
-print("gradcam_overlay_available=true")
+
+if __name__ == "__main__":
+    asyncio.run(run())

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:clerk_flutter/clerk_flutter.dart';
 
 import '../../data/mock/mock_data.dart';
 import '../../models/doctor.dart';
@@ -6,9 +7,9 @@ import '../../models/screening_result.dart';
 import '../../models/screening_session.dart';
 import '../../views/screens/auth/auth_screens.dart';
 import '../../views/screens/doctors/doctor_screens.dart';
+import '../../views/screens/doctors/doctor_workspace.dart';
 import '../../views/screens/education/education_screen.dart';
 import '../../views/screens/history/history_screens.dart';
-import '../../views/screens/home/main_shell.dart';
 import '../../views/screens/onboarding/onboarding_screens.dart';
 import '../../views/screens/profile/profile_screens.dart';
 import '../../views/screens/referral/referral_screen.dart';
@@ -48,7 +49,7 @@ abstract final class AppRoutes {
       login => const LoginScreen(),
       register => const RegisterScreen(),
       forgotPassword => const ForgotPasswordScreen(),
-      home => const MainShell(),
+      home => const RoleHomeScreen(),
       preparation => const ScreeningPreparationScreen(),
       capture => const CaptureScreen(),
       preview => ImagePreviewScreen(
@@ -93,11 +94,11 @@ abstract final class AppRoutes {
         ),
       map => const MapScreen(),
       history => const HistoryScreen(standalone: true),
-      historyDetail => HistoryDetailScreen(
-          result: settings.arguments is ScreeningResult
-              ? settings.arguments! as ScreeningResult
-              : MockData.results.first,
-        ),
+      historyDetail => settings.arguments is ScreeningResult
+          ? HistoryDetailScreen(
+              result: settings.arguments! as ScreeningResult,
+            )
+          : const HistoryScreen(standalone: true),
       education => const EducationScreen(),
       privacy => const PrivacyScreen(),
       about => const AboutScreen(),
@@ -108,7 +109,10 @@ abstract final class AppRoutes {
       settings: settings,
       transitionDuration: const Duration(milliseconds: 220),
       reverseTransitionDuration: const Duration(milliseconds: 180),
-      pageBuilder: (_, animation, __) => page,
+      pageBuilder: (_, animation, __) => _AuthRoute(
+        routeName: settings.name,
+        child: page,
+      ),
       transitionsBuilder: (_, animation, __, child) {
         final offset = Tween(
           begin: const Offset(.035, 0),
@@ -122,6 +126,37 @@ abstract final class AppRoutes {
           ),
         );
       },
+    );
+  }
+}
+
+class _AuthRoute extends StatelessWidget {
+  const _AuthRoute({required this.routeName, required this.child});
+
+  final String? routeName;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (routeName == AppRoutes.splash || routeName == AppRoutes.onboarding) {
+      return child;
+    }
+    final isAuthRoute = routeName == AppRoutes.login ||
+        routeName == AppRoutes.register ||
+        routeName == AppRoutes.forgotPassword;
+    return ClerkAuthBuilder(
+      signedInBuilder: (_, auth) {
+        final session = auth.session;
+        final active = session != null &&
+            session.isActive &&
+            session.expireAt.isAfter(DateTime.now());
+        if (!active) {
+          return const ExpiredSessionScreen();
+        }
+        return isAuthRoute ? const RoleHomeScreen() : child;
+      },
+      signedOutBuilder: (_, __) =>
+          isAuthRoute ? child : const LoginScreen(sessionExpired: true),
     );
   }
 }

@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
 $backendRoot = 'D:\oralyn-backend'
+$backendSource = Join-Path $PSScriptRoot '.backend-work'
 $pythonPath = Join-Path $backendRoot '.venv\Scripts\python.exe'
 $cloudflaredPath = Join-Path $backendRoot 'cloudflared.exe'
 $serverOutput = Join-Path $PSScriptRoot 'oralyn-server.log'
@@ -12,6 +13,18 @@ if (-not (Test-Path -LiteralPath $pythonPath)) {
 if (-not (Test-Path -LiteralPath $cloudflaredPath)) {
     throw "cloudflared was not found at $cloudflaredPath"
 }
+if (-not (Test-Path -LiteralPath (Join-Path $backendSource 'main.py'))) {
+    throw "Tracked backend source was not found at $backendSource"
+}
+
+# Keep the runtime secret and trained checkpoints outside the Git repository.
+# The child Uvicorn process inherits these paths, never the values in the logs.
+$env:ORALYN_ENV_FILE = Join-Path $backendRoot '.env'
+$env:ORALYN_MODEL_DIR = Join-Path $backendRoot 'models'
+if (-not $env:CLERK_ISSUER) {
+    # Public issuer of the existing Clerk development instance.
+    $env:CLERK_ISSUER = 'https://balanced-mammal-1206.clerk.accounts.dev'
+}
 
 Write-Host 'Starting the Oralyn FastAPI model server...'
 $server = Start-Process `
@@ -21,7 +34,7 @@ $server = Start-Process `
         '--host', '127.0.0.1',
         '--port', '8000'
     ) `
-    -WorkingDirectory $backendRoot `
+    -WorkingDirectory $backendSource `
     -WindowStyle Hidden `
     -RedirectStandardOutput $serverOutput `
     -RedirectStandardError $serverError `

@@ -5,21 +5,24 @@ referral support, and nearby care discovery.
 
 The camera and gallery use the phone's native photo picker, and the captured
 photo is previewed throughout the screening flow. When screening starts, the
-photo is uploaded to the configured FastAPI prediction service. Authentication,
-location, doctor search, and saved history still use local prototype data.
+photo is uploaded to the configured FastAPI prediction service. Authentication
+uses the existing Clerk development application. Saved screening history and
+the Phase 4 review workflow use Supabase; nearby-care discovery remains
+prototype data.
 
 ## Prediction API configuration
 
-The app includes a development Cloudflare Quick Tunnel URL. The base URL can be
+The app includes a development Cloudflare Quick Tunnel URL that may have
+expired. The base URL can be
 changed on the phone from **Profile → Screening server**. If a screening
 request fails, the error screen also provides **Update Server URL**.
 
-The API key is intentionally not stored in source control. Provide a
-development key at build or run time:
+The existing Clerk development publishable key is public and included as a
+default. Override it for another Clerk instance at build or run time:
 
 ```powershell
 .\.tooling\flutter\bin\flutter.bat run `
-  --dart-define=ORALYN_API_KEY=<development-key>
+  --dart-define=CLERK_PUBLISHABLE_KEY=<publishable-key>
 ```
 
 You can still override the initial default URL at build time:
@@ -31,10 +34,9 @@ You can still override the initial default URL at build time:
 
 The current default endpoint is
 `https://manufacturing-yea-guild-roommates.trycloudflare.com/predict`. The app
-sends a multipart `POST` using the `image` field and the `x-api-key` header. The
-build-time key can still be extracted from the compiled APK, so a
-user-authenticated proxy or short-lived client token should replace it before
-production.
+sends a multipart `POST` using the `image` field and a short-lived Clerk
+session token in the `Authorization: Bearer` header. The legacy shared mobile
+API key is no longer accepted by `/predict`.
 
 FastAPI exposes interactive Swagger documentation at `/docs`; documentation
 URLs such as `/docs/predict` are not API routes. The in-app URL editor corrects
@@ -45,8 +47,10 @@ tunnel with a stable hostname for distributed builds.
 
 ## Start the backend and tunnel
 
-The backend and `cloudflared.exe` are stored in `D:\oralyn-backend`. Start both
-with one command from this project:
+The FastAPI source is tracked in `.backend-work/`. The local Python environment,
+model checkpoints, `.env`, and `cloudflared.exe` remain outside Git in
+`D:\oralyn-backend`. The launcher runs the tracked source and points it to those
+private runtime files:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Start-Oralyn-Server.ps1
@@ -57,24 +61,53 @@ terminal open, then open **Profile → Screening server** in Oralyn and paste th
 URL. The app automatically adds `/predict`. Closing the terminal stops the
 backend/tunnel, and restarting a Quick Tunnel produces a new URL.
 
+The backend loads both checkpoints once at startup. `/health` reports healthy
+only when screening models are ready. `/predict` retains its multipart `image`
+field, response fields, class mapping, and conditional
+second-model behavior. Uploads are limited to 10 MB of image data, with a 64 KB
+multipart allowance and a 4 million decoded-pixel limit. The mobile picker
+resizes images to at most 1600 px on either side.
+
+Backend checks use generated images; no patient images are included:
+
+```powershell
+cd .backend-work
+python -m pip install -r requirements-dev.txt
+python -m unittest discover -s tests -v
+$env:ORALYN_MODEL_DIR = 'D:\oralyn-backend\models'
+python backend_gradcam_smoke_test.py
+# With CLERK_ISSUER and ORALYN_TEST_SESSION_TOKEN set privately:
+python backend_live_integration_test.py
+```
+
+The real-checkpoint checks need the local model files; the contract tests do
+not. The launcher sets `CLERK_ISSUER` to the existing development issuer;
+deployments can set `CLERK_AUTHORIZED_PARTIES` and `CLERK_AUDIENCE` to restrict
+token claims. The live integration script requires `ORALYN_TEST_SESSION_TOKEN`
+from a signed-in test account. See the [Phase 3A report](docs/PHASE3A_AUTH.md)
+before using real patient records.
+
 ## Lightweight development
 
 The project includes a local Flutter SDK in `.tooling/` (ignored by Git). Android
 Studio and an emulator are not required; a physical Android phone can be used.
 
 ```powershell
-.\.tooling\flutter\bin\flutter.bat pub get
-.\.tooling\flutter\bin\flutter.bat run
+cd O:\
+& 'O:\.tooling\flutter\bin\flutter.bat' pub get
+& 'O:\.tooling\flutter\bin\flutter.bat' run
 ```
 
-Use `.\.tooling\flutter\bin\flutter.bat run` with a configured physical Android
-device when the Android command-line SDK is available.
+Use `O:\.tooling\flutter\bin\flutter.bat run` with a configured physical Android
+device when the Android command-line SDK is available. This workstation uses
+`O:\` as a space-free alias of the repository because the Dart native-asset
+hook does not handle the spaced workspace path correctly.
 
 Static verification:
 
 ```powershell
-.\.tooling\flutter\bin\flutter.bat analyze
-.\.tooling\flutter\bin\flutter.bat test
+& 'O:\.tooling\flutter\bin\flutter.bat' analyze
+& 'O:\.tooling\flutter\bin\flutter.bat' test
 ```
 
 Mock doctors, facilities, screening history, and result scenarios are configured
@@ -87,3 +120,7 @@ Build an installable Android APK:
 ```
 
 The generated file is `build/app/outputs/flutter-apk/app-release.apk`.
+
+For Phase 4 database setup, synthetic accounts, assignment/revocation checks,
+and the complete Patient-to-Doctor workflow, follow
+[`docs/PHASE4_MANUAL_TESTING.md`](docs/PHASE4_MANUAL_TESTING.md).

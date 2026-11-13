@@ -1,16 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:clerk_flutter/clerk_flutter.dart';
 
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../data/mock/mock_data.dart';
+import '../../../models/screening_result.dart';
+import '../../../services/screening_history_service.dart';
+import '../../../services/review_request_service.dart';
 import '../../widgets/common/app_components.dart';
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key, this.historyRepository});
+  final ScreeningHistoryRepository? historyRepository;
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  late final ScreeningHistoryRepository repository =
+      widget.historyRepository ?? ScreeningHistoryApiRepository();
+  late final Future<List<ScreeningResult>> history = repository.list();
+  final ReviewRequestService reviewService = ReviewRequestService();
+  late final Future<List<ReviewRequestStatus>> reviews = reviewService.list();
+
+  @override
+  void dispose() {
+    if (widget.historyRepository == null) repository.close();
+    reviewService.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final recent = MockData.results.first;
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 112),
@@ -27,13 +48,76 @@ class HomeScreen extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, AppRoutes.history),
           ),
           const SizedBox(height: 12),
-          ScreeningCard(
-            result: recent,
-            onTap: () => Navigator.pushNamed(
-              context,
-              AppRoutes.historyDetail,
-              arguments: recent,
-            ),
+          FutureBuilder<List<ScreeningResult>>(
+            future: history,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const SizedBox(
+                  height: 90,
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              if (snapshot.hasError) {
+                return const _HomeMessage(
+                  'Recent screening is unavailable. Open History to try again.',
+                );
+              }
+              final results = snapshot.data ?? const <ScreeningResult>[];
+              if (results.isEmpty) {
+                return const _NoRecentScreening();
+              }
+              final recent = results.first;
+              return ScreeningCard(
+                result: recent,
+                onTap: () => Navigator.pushNamed(
+                  context,
+                  AppRoutes.historyDetail,
+                  arguments: recent,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          FutureBuilder<List<ReviewRequestStatus>>(
+            future: reviews,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const SizedBox(
+                    height: 48,
+                    child: Center(child: CircularProgressIndicator()));
+              }
+              if (snapshot.hasError) {
+                return const _HomeMessage(
+                    'Doctor review status is unavailable.');
+              }
+              final requests = snapshot.data!;
+              final pending = requests
+                  .where((item) =>
+                      item.status != 'reviewed' && item.status != 'closed')
+                  .length;
+              final completed = requests
+                  .where((item) =>
+                      item.status == 'reviewed' || item.status == 'closed')
+                  .length;
+              return Semantics(
+                label:
+                    '$pending pending Doctor reviews, $completed completed Doctor reviews',
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(children: [
+                      Expanded(child: Text('Doctor reviews\n$pending pending')),
+                      Expanded(child: Text('$completed completed')),
+                      TextButton(
+                        onPressed: () =>
+                            Navigator.pushNamed(context, AppRoutes.history),
+                        child: const Text('View history'),
+                      ),
+                    ]),
+                  ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 12),
           Row(
@@ -68,71 +152,109 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
+class _HomeMessage extends StatelessWidget {
+  const _HomeMessage(this.message);
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(message),
+        ),
+      );
+}
+
+class _NoRecentScreening extends StatelessWidget {
+  const _NoRecentScreening();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.divider),
+        ),
+        child: const Text(
+          'No saved screenings yet. Save a result to see it here.',
+          style: TextStyle(color: AppColors.secondaryText),
+        ),
+      );
+}
+
 class _HomeHeader extends StatelessWidget {
   const _HomeHeader();
 
   @override
-  Widget build(BuildContext context) => Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: const BoxDecoration(
-              color: AppColors.peachSoft,
-              shape: BoxShape.circle,
-            ),
-            child: const Center(
-              child: Text('AK',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-            ),
+  Widget build(BuildContext context) {
+    final name = ClerkAuth.userOf(context)?.name.trim();
+    final displayName = name == null || name.isEmpty ? 'Oralyn member' : name;
+    final parts = displayName.split(RegExp(r'\s+'));
+    final initials = parts.take(2).map((part) => part[0]).join().toUpperCase();
+    return Row(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: const BoxDecoration(
+            color: AppColors.peachSoft,
+            shape: BoxShape.circle,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Good morning',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Ariana',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ],
-            ),
+          child: Center(
+            child: Text(initials,
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
           ),
-          Container(
-            width: 43,
-            height: 43,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.divider),
-            ),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                const Center(
-                    child: Icon(Icons.notifications_none_rounded, size: 21)),
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: AppColors.coral,
-                      shape: BoxShape.circle,
-                    ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Good morning',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                displayName,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ],
+          ),
+        ),
+        Container(
+          width: 43,
+          height: 43,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.divider),
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Center(
+                  child: Icon(Icons.notifications_none_rounded, size: 21)),
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: AppColors.coral,
+                    shape: BoxShape.circle,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      );
+        ),
+      ],
+    );
+  }
 }
 
 class _ScreeningHero extends StatelessWidget {

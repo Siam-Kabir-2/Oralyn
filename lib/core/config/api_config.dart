@@ -8,8 +8,6 @@ abstract final class ApiConfig {
     defaultValue: _defaultBaseUrl,
   );
 
-  static const apiKey = String.fromEnvironment('ORALYN_API_KEY');
-
   static Uri get predictionUri {
     final normalizedBaseUrl = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)

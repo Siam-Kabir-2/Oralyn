@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:clerk_flutter/clerk_flutter.dart';
 
 import 'app_colors.dart';
 
@@ -17,6 +18,20 @@ abstract final class AppTheme {
       colorScheme: scheme,
       scaffoldBackgroundColor: AppColors.background,
       fontFamily: 'Inter',
+      extensions: [
+        ClerkThemeExtension(
+          colors: const ClerkThemeColors(
+            background: AppColors.surface,
+            altBackground: AppColors.background,
+            borderSide: AppColors.divider,
+            text: AppColors.text,
+            icon: AppColors.ink,
+            lightweightText: AppColors.secondaryText,
+            error: AppColors.danger,
+            accent: AppColors.teal,
+          ),
+        ),
+      ],
       textTheme: const TextTheme(
         displaySmall: TextStyle(
           fontSize: 34,

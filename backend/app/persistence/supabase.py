@@ -98,6 +98,49 @@ class SupabaseRepository:
             raise PersistenceUnavailable("Could not load profile")
         return response.json()[0]
 
+    async def apply_doctor_candidate(self, user_id: str, data: dict[str, str]) -> None:
+        response = await self._request(
+            "POST", f"{self.url}/rest/v1/rpc/apply_doctor_candidate",
+            headers={**self._admin_headers(), "content-type": "application/json"},
+            json={"p_doctor_id": user_id, "p_name": data["display_name"],
+                  "p_specialization": data["specialization"],
+                  "p_qualification": data["qualification"],
+                  "p_registration": data["registration_reference"],
+                  "p_workplace": data["workplace"]},
+        )
+        if response.status_code in (400, 403, 409):
+            raise PersistenceConflict("Doctor application is not eligible")
+        if response.status_code not in (200, 204):
+            raise PersistenceUnavailable("Could not submit Doctor application")
+
+    async def doctor_profile(self, token: str, user_id: str) -> dict[str, Any]:
+        response = await self._request(
+            "GET", f"{self.url}/rest/v1/doctor_profiles",
+            headers=self._user_headers(token),
+            params={"select": "display_name,specialization,qualification,registration_reference,workplace,verification_state",
+                    "clerk_user_id": f"eq.{user_id}", "limit": "1"},
+        )
+        if response.status_code != 200:
+            raise PersistenceUnavailable("Could not load Doctor profile")
+        if not response.json():
+            raise PermissionError("Doctor profile is unavailable")
+        return response.json()[0]
+
+    async def update_doctor_profile(self, user_id: str, data: dict[str, str]) -> None:
+        response = await self._request(
+            "POST", f"{self.url}/rest/v1/rpc/update_my_doctor_profile",
+            headers={**self._admin_headers(), "content-type": "application/json"},
+            json={"p_doctor_id": user_id, "p_name": data["display_name"],
+                  "p_specialization": data["specialization"],
+                  "p_qualification": data["qualification"],
+                  "p_registration": data["registration_reference"],
+                  "p_workplace": data["workplace"]},
+        )
+        if response.status_code in (400, 403, 409):
+            raise PersistenceConflict("Doctor profile cannot be edited")
+        if response.status_code not in (200, 204):
+            raise PersistenceUnavailable("Could not update Doctor profile")
+
     async def request_review(self, token: str, screening_id: str) -> dict[str, str]:
         response = await self._request(
             "POST", f"{self.url}/rest/v1/rpc/request_screening_review",

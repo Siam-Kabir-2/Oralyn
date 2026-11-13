@@ -82,4 +82,54 @@ void main() {
           (error) => error.message, 'message', contains('Unable to reach'))),
     );
   });
+
+  test('Doctor application uses Clerk identity without client role fields',
+      () async {
+    final client = MockClient((request) async {
+      expect(request.url.path, '/doctor/applications');
+      expect(request.method, 'POST');
+      expect(request.headers['authorization'], 'Bearer applicant-session');
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      expect(body['display_name'], 'Synthetic Applicant');
+      expect(body.containsKey('application_role'), isFalse);
+      expect(body.containsKey('verification_state'), isFalse);
+      return http.Response(jsonEncode({'verification_state': 'pending'}), 201);
+    });
+    final service = DoctorCaseService(
+        client: client,
+        predictionEndpoint: endpoint,
+        tokenProvider: () async => 'applicant-session');
+    final result = await service.applyAsDoctor({
+      'display_name': 'Synthetic Applicant',
+      'registration_reference': 'TEST-001',
+      'qualification': 'Synthetic degree',
+      'specialization': 'Oral medicine',
+      'workplace': 'Test clinic',
+    });
+    expect(result['verification_state'], 'pending');
+  });
+
+  test('verified directory consumes only the authenticated API', () async {
+    final client = MockClient((request) async {
+      expect(request.url.path, '/doctors');
+      expect(request.headers['authorization'], 'Bearer patient-session');
+      return http.Response(
+          jsonEncode({
+            'items': [
+              {
+                'display_name': 'Synthetic Verified Doctor',
+                'specialization': 'Oral medicine',
+                'qualification': 'Test degree'
+              }
+            ]
+          }),
+          200);
+    });
+    final service = DoctorCaseService(
+        client: client,
+        predictionEndpoint: endpoint,
+        tokenProvider: () async => 'patient-session');
+    expect((await service.verifiedDoctors()).single['display_name'],
+        'Synthetic Verified Doctor');
+  });
 }

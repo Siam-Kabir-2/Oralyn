@@ -8,6 +8,7 @@ import '../../models/screening_session.dart';
 import '../../views/screens/auth/auth_screens.dart';
 import '../../views/screens/doctors/doctor_screens.dart';
 import '../../views/screens/doctors/doctor_workspace.dart';
+import '../../views/screens/doctors/doctor_account_screens.dart';
 import '../../views/screens/education/education_screen.dart';
 import '../../views/screens/history/history_screens.dart';
 import '../../views/screens/onboarding/onboarding_screens.dart';
@@ -22,6 +23,13 @@ abstract final class AppRoutes {
   static const onboarding = '/onboarding';
   static const login = '/login';
   static const register = '/register';
+  static const authChoice = '/choose-role';
+  static const doctorLogin = '/doctor/login';
+  static const doctorRegister = '/doctor/register';
+  static const doctorApply = '/doctor/apply';
+  static const doctorProfile = '/doctor/profile';
+  static const doctorMessages = '/doctor/messages';
+  static const adminLogin = '/admin/login';
   static const forgotPassword = '/forgot-password';
   static const home = '/home';
   static const preparation = '/screening/preparation';
@@ -46,8 +54,15 @@ abstract final class AppRoutes {
     final page = switch (settings.name) {
       splash => const SplashScreen(),
       onboarding => const OnboardingScreen(),
+      authChoice => const AuthChoiceScreen(),
       login => const LoginScreen(),
       register => const RegisterScreen(),
+      doctorLogin => const LoginScreen(role: 'doctor'),
+      doctorRegister => const RegisterScreen(role: 'doctor'),
+      doctorApply => const DoctorApplicationScreen(),
+      doctorProfile => const DoctorProfileScreen(),
+      doctorMessages => const DoctorMessagesScreen(),
+      adminLogin => const LoginScreen(role: 'admin'),
       forgotPassword => const ForgotPasswordScreen(),
       home => const RoleHomeScreen(),
       preparation => const ScreeningPreparationScreen(),
@@ -141,7 +156,11 @@ class _AuthRoute extends StatelessWidget {
     if (routeName == AppRoutes.splash || routeName == AppRoutes.onboarding) {
       return child;
     }
-    final isAuthRoute = routeName == AppRoutes.login ||
+    final isAuthRoute = routeName == AppRoutes.authChoice ||
+        routeName == AppRoutes.doctorLogin ||
+        routeName == AppRoutes.doctorRegister ||
+        routeName == AppRoutes.adminLogin ||
+        routeName == AppRoutes.login ||
         routeName == AppRoutes.register ||
         routeName == AppRoutes.forgotPassword;
     return ClerkAuthBuilder(
@@ -153,10 +172,25 @@ class _AuthRoute extends StatelessWidget {
         if (!active) {
           return const ExpiredSessionScreen();
         }
+        if (routeName == AppRoutes.doctorRegister ||
+            routeName == AppRoutes.doctorApply) {
+          return const DoctorApplicationScreen();
+        }
+        if (routeName == AppRoutes.doctorLogin) {
+          return const RoleHomeScreen(preferredRole: 'doctor');
+        }
+        if (routeName == AppRoutes.adminLogin) {
+          return const RoleHomeScreen(preferredRole: 'admin');
+        }
         return isAuthRoute ? const RoleHomeScreen() : child;
       },
-      signedOutBuilder: (_, __) =>
-          isAuthRoute ? child : const LoginScreen(sessionExpired: true),
+      signedOutBuilder: (_, __) => isAuthRoute
+          ? child
+          : routeName == AppRoutes.doctorApply ||
+                  routeName == AppRoutes.doctorProfile ||
+                  routeName == AppRoutes.doctorMessages
+              ? const LoginScreen(sessionExpired: true, role: 'doctor')
+              : const LoginScreen(sessionExpired: true),
     );
   }
 }

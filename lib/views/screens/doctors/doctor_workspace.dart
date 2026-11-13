@@ -10,8 +10,9 @@ import '../../../services/screening_history_service.dart';
 import '../home/main_shell.dart';
 
 class RoleHomeScreen extends StatefulWidget {
-  const RoleHomeScreen({super.key, this.caseService});
+  const RoleHomeScreen({super.key, this.caseService, this.preferredRole});
   final DoctorCaseService? caseService;
+  final String? preferredRole;
   @override
   State<RoleHomeScreen> createState() => _RoleHomeScreenState();
 }
@@ -36,8 +37,9 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
                         ? Column(mainAxisSize: MainAxisSize.min, children: [
                             const Text('Account profile is unavailable.'),
                             TextButton(
-                                onPressed: () =>
-                                    setState(() => profile = service.profile()),
+                                onPressed: () => setState(() {
+                                      profile = service.profile();
+                                    }),
                                 child: const Text('Try again')),
                             TextButton.icon(
                                 onPressed: () => Navigator.pushNamed(
@@ -48,9 +50,81 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
                         : const CircularProgressIndicator()));
           }
           final value = snapshot.data!;
-          return value['application_role'] == 'doctor'
-              ? DoctorWorkspace(profile: value)
-              : const MainShell();
+          final role = value['application_role'];
+          if (role == 'admin') return const _AdminLandingScreen();
+          if (role == 'doctor') {
+            final doctor = value['doctor_profiles'] as Map<String, dynamic>?;
+            final state = doctor?['verification_state'] as String? ?? 'unavailable';
+            return state == 'verified'
+                ? DoctorWorkspace(profile: value, caseService: service)
+                : _DoctorStatusScreen(
+                    state: state,
+                    refresh: () => setState(() {
+                          profile = service.profile();
+                        }));
+          }
+          if (widget.preferredRole == 'doctor') {
+            return Scaffold(
+                appBar: AppBar(title: const Text('Doctor access'), actions: [
+                  IconButton(
+                    tooltip: 'Sign out',
+                    icon: const Icon(Icons.logout),
+                    onPressed: () async {
+                      await ClerkAuth.of(context, listen: false).signOut();
+                      if (context.mounted)
+                        Navigator.pushNamedAndRemoveUntil(
+                            context, AppRoutes.authChoice, (_) => false);
+                    },
+                  ),
+                ]),
+                body: Center(
+                    child: Padding(
+                        padding: const EdgeInsets.all(22),
+                        child:
+                            Column(mainAxisSize: MainAxisSize.min, children: [
+                          const Text(
+                              'No Doctor application is associated with this account.'),
+                          const SizedBox(height: 12),
+                          FilledButton(
+                              onPressed: () => Navigator.pushNamed(
+                                  context, AppRoutes.doctorApply),
+                              child: const Text('Apply as Doctor')),
+                          TextButton(
+                            onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                                context, AppRoutes.home, (_) => false),
+                            child: const Text('Continue as Patient'),
+                          ),
+                        ]))));
+          }
+          if (widget.preferredRole == 'admin') {
+            return Scaffold(
+                appBar: AppBar(actions: [
+                  IconButton(
+                    tooltip: 'Sign out',
+                    icon: const Icon(Icons.logout),
+                    onPressed: () async {
+                      await ClerkAuth.of(context, listen: false).signOut();
+                      if (context.mounted)
+                        Navigator.pushNamedAndRemoveUntil(
+                            context, AppRoutes.authChoice, (_) => false);
+                    },
+                  )
+                ]),
+                body: Center(
+                    child: Padding(
+                        padding: const EdgeInsets.all(22),
+                        child:
+                            Column(mainAxisSize: MainAxisSize.min, children: [
+                          const Text(
+                              'Admin access is not assigned to this account.'),
+                          TextButton(
+                            onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                                context, AppRoutes.home, (_) => false),
+                            child: const Text('Continue as Patient'),
+                          ),
+                        ]))));
+          }
+          return const MainShell();
         },
       );
 }
@@ -106,6 +180,19 @@ class _DoctorWorkspaceState extends State<DoctorWorkspace> {
           Text('Qualification: ${doctor['qualification'] ?? ''}'),
           Text('Registration: ${doctor['registration_reference'] ?? ''}'),
         ],
+        const SizedBox(height: 14),
+        Wrap(spacing: 10, runSpacing: 8, children: [
+          OutlinedButton.icon(
+              onPressed: () =>
+                  Navigator.pushNamed(context, AppRoutes.doctorProfile),
+              icon: const Icon(Icons.badge_outlined),
+              label: const Text('My Doctor Profile')),
+          OutlinedButton.icon(
+              onPressed: () =>
+                  Navigator.pushNamed(context, AppRoutes.doctorMessages),
+              icon: const Icon(Icons.chat_bubble_outline),
+              label: const Text('Messages · Coming Soon')),
+        ]),
         const SizedBox(height: 20),
         Card(
             child: Padding(
@@ -124,7 +211,9 @@ class _DoctorWorkspaceState extends State<DoctorWorkspace> {
             builder: (context, snapshot) {
               if (snapshot.hasError)
                 return TextButton(
-                    onPressed: () => setState(() => cases = service.cases()),
+                    onPressed: () => setState(() {
+                          cases = service.cases();
+                        }),
                     child: const Text('Could not load cases. Try again'));
               if (!snapshot.hasData)
                 return const Center(child: CircularProgressIndicator());
@@ -175,7 +264,9 @@ class _DoctorWorkspaceState extends State<DoctorWorkspace> {
                               builder: (_) => DoctorCaseScreen(
                                   assignmentId: caseRow['id'] as String)));
                       if (mounted) {
-                        setState(() => cases = service.cases());
+                        setState(() {
+                          cases = service.cases();
+                        });
                       }
                     },
                   ));
@@ -186,6 +277,97 @@ class _DoctorWorkspaceState extends State<DoctorWorkspace> {
       ])),
     );
   }
+}
+
+class _DoctorStatusScreen extends StatelessWidget {
+  const _DoctorStatusScreen({required this.state, required this.refresh});
+  final String state;
+  final VoidCallback refresh;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Doctor verification'), actions: [
+        IconButton(
+            tooltip: 'Sign out',
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await ClerkAuth.of(context, listen: false).signOut();
+              if (context.mounted)
+                Navigator.pushNamedAndRemoveUntil(
+                    context, AppRoutes.authChoice, (_) => false);
+            }),
+      ]),
+      body: Center(
+          child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(
+                    state == 'pending'
+                        ? Icons.hourglass_top_rounded
+                        : Icons.lock_outline,
+                    size: 46,
+                    color: AppColors.teal),
+                const SizedBox(height: 18),
+                Text(
+                    switch (state) {
+                      'rejected' => 'Application rejected',
+                      'suspended' => 'Account suspended',
+                      'unavailable' => 'Doctor profile unavailable',
+                      _ => 'Application pending',
+                    },
+                    style: Theme.of(context).textTheme.headlineMedium),
+                const SizedBox(height: 12),
+                Text(
+                    switch (state) {
+                      'rejected' =>
+                        'Your application was not approved. Patient cases are unavailable.',
+                      'suspended' =>
+                        'Your Doctor access has been suspended. Patient cases are unavailable.',
+                      'unavailable' =>
+                        'Your verification status could not be loaded. Patient cases are unavailable.',
+                      _ =>
+                        'An authorized administrator must verify your details before case access is available.',
+                    },
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 22),
+                FilledButton.icon(
+                    onPressed: refresh,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Refresh status')),
+                if (state != 'unavailable')
+                  TextButton(
+                      onPressed: () => Navigator.pushNamed(
+                          context, AppRoutes.doctorProfile),
+                      child: const Text('My Doctor Profile')),
+                TextButton(
+                    onPressed: () =>
+                        Navigator.pushNamed(context, AppRoutes.apiSettings),
+                    child: const Text('Screening server')),
+              ]))));
+}
+
+class _AdminLandingScreen extends StatelessWidget {
+  const _AdminLandingScreen();
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Admin access'), actions: [
+          IconButton(
+              tooltip: 'Sign out',
+              icon: const Icon(Icons.logout),
+              onPressed: () async {
+                await ClerkAuth.of(context, listen: false).signOut();
+                if (context.mounted)
+                  Navigator.pushNamedAndRemoveUntil(
+                      context, AppRoutes.authChoice, (_) => false);
+              }),
+        ]),
+        body: const Center(
+            child: Padding(
+                padding: EdgeInsets.all(22),
+                child: Text(
+                    'Admin account recognized. The Admin workspace is under development; no patient or Doctor records are available here.'))),
+      );
 }
 
 class DoctorCaseScreen extends StatefulWidget {
@@ -303,8 +485,9 @@ class _DoctorCaseScreenState extends State<DoctorCaseScreen> {
               if (snapshot.hasError)
                 return Center(
                     child: TextButton(
-                        onPressed: () => setState(
-                            () => detail = service.detail(widget.assignmentId)),
+                        onPressed: () => setState(() {
+                              detail = service.detail(widget.assignmentId);
+                            }),
                         child: const Text('Case unavailable. Try again')));
               if (!snapshot.hasData)
                 return const Center(child: CircularProgressIndicator());
@@ -408,8 +591,9 @@ class _CaseImageState extends State<_CaseImage> {
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return TextButton(
-              onPressed: () =>
-                  setState(() => image = widget.assets.loadAsset(widget.path!)),
+              onPressed: () => setState(() {
+                image = widget.assets.loadAsset(widget.path!);
+              }),
               child: const Text('Private image unavailable. Try again'),
             );
           }

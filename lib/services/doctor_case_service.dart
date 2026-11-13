@@ -37,6 +37,65 @@ class DoctorCaseService {
   }
 
   Future<Map<String, dynamic>> profile() async => _get('/me');
+  Future<List<Map<String, dynamic>>> verifiedDoctors() async {
+    final body = await _get('/doctors');
+    final items = body['items'];
+    if (items is! List) {
+      throw const DoctorCaseException('Doctor directory response is invalid.');
+    }
+    return List.unmodifiable(items.cast<Map<String, dynamic>>());
+  }
+
+  Future<Map<String, dynamic>> myDoctorProfile() async =>
+      _get('/doctor/profile');
+
+  Future<Map<String, dynamic>> applyAsDoctor(
+          Map<String, String> details) async =>
+      _writeProfile('POST', '/doctor/applications', details);
+
+  Future<Map<String, dynamic>> updateMyDoctorProfile(
+          Map<String, String> details) async =>
+      _writeProfile('PUT', '/doctor/profile', details);
+
+  Future<Map<String, dynamic>> _writeProfile(
+      String method, String path, Map<String, String> details) async {
+    try {
+      final context = await _context();
+      final response = await _client
+          .send(http.Request(method, context.base.resolve(path))
+            ..headers.addAll({
+              'authorization': 'Bearer ${context.token}',
+              'content-type': 'application/json'
+            })
+            ..body = jsonEncode(details))
+          .timeout(const Duration(seconds: 20));
+      final body = await response.stream.bytesToString();
+      if (response.statusCode == 401) {
+        throw const DoctorCaseException('Session expired. Sign in again.');
+      }
+      if (response.statusCode == 403) {
+        throw const DoctorCaseException('Doctor account access is restricted.');
+      }
+      if (response.statusCode == 409) {
+        throw const DoctorCaseException(
+            'This Doctor application or profile has changed. Refresh and retry.');
+      }
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw const DoctorCaseException(
+            'Doctor account service is unavailable. Try again.');
+      }
+      return jsonDecode(body) as Map<String, dynamic>;
+    } on TimeoutException {
+      throw const DoctorCaseException('Doctor account request timed out.');
+    } on http.ClientException {
+      throw const DoctorCaseException(
+          'Unable to reach the Doctor account service.');
+    } on FormatException {
+      throw const DoctorCaseException(
+          'The Doctor account response is invalid.');
+    }
+  }
+
   Future<List<Map<String, dynamic>>> cases() async {
     final body = await _get('/doctor/cases');
     final items = body['items'];

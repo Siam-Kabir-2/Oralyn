@@ -9,38 +9,116 @@ import '../../../core/theme/app_colors.dart';
 import '../../widgets/common/app_components.dart';
 
 class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key, this.sessionExpired = false});
+  const LoginScreen(
+      {super.key, this.sessionExpired = false, this.role = 'patient'});
 
   final bool sessionExpired;
+  final String role;
 
   @override
   Widget build(BuildContext context) => _AuthScaffold(
-        title: 'Welcome back',
+        title: role == 'admin'
+            ? 'Admin sign in'
+            : role == 'doctor'
+                ? 'Doctor sign in'
+                : 'Patient sign in',
         subtitle: sessionExpired
             ? 'Your session has ended. Sign in to continue.'
-            : 'Sign in to continue your oral health journey.',
+            : role == 'doctor'
+                ? 'Use your Oralyn account to access your professional workspace.'
+                : role == 'admin'
+                    ? 'Authorized administrators only.'
+                    : 'Sign in to continue your oral health journey.',
         child: const ClerkErrorListener(child: ClerkSignInPanel()),
+        footer: role == 'admin'
+            ? const SizedBox.shrink()
+            : TextButton(
+                onPressed: () => Navigator.pushNamed(
+                    context,
+                    role == 'doctor'
+                        ? AppRoutes.doctorRegister
+                        : AppRoutes.register),
+                child: Text(
+                    role == 'doctor'
+                        ? 'New Doctor? Apply for verification'
+                        : 'New to Oralyn? Create account',
+                    style: const TextStyle(color: AppColors.teal)),
+              ),
+      );
+}
+
+class RegisterScreen extends StatelessWidget {
+  const RegisterScreen({super.key, this.role = 'patient'});
+
+  final String role;
+
+  @override
+  Widget build(BuildContext context) => _AuthScaffold(
+        title: role == 'doctor'
+            ? 'Create a Doctor account'
+            : 'Create your account',
+        subtitle: role == 'doctor'
+            ? 'After email verification, submit your professional details for review.'
+            : 'Keep your screening guidance and care options in one place.',
+        child: const ClerkErrorListener(child: ClerkSignUpPanel()),
         footer: TextButton(
-          onPressed: () => Navigator.pushNamed(context, AppRoutes.register),
-          child: const Text('New to Oralyn? Create account',
+          onPressed: () => Navigator.pushReplacementNamed(context,
+              role == 'doctor' ? AppRoutes.doctorLogin : AppRoutes.login),
+          child: const Text('Already have an account? Sign in',
               style: TextStyle(color: AppColors.teal)),
         ),
       );
 }
 
-class RegisterScreen extends StatelessWidget {
-  const RegisterScreen({super.key});
+class AuthChoiceScreen extends StatelessWidget {
+  const AuthChoiceScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => _AuthScaffold(
-        title: 'Create your account',
-        subtitle: 'Keep your screening guidance and care options in one place.',
-        child: const ClerkErrorListener(child: ClerkSignUpPanel()),
-        footer: TextButton(
-          onPressed: () =>
-              Navigator.pushReplacementNamed(context, AppRoutes.login),
-          child: const Text('Already have an account? Sign in',
-              style: TextStyle(color: AppColors.teal)),
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(),
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(22, 18, 22, 28),
+            children: [
+              const OralynLogo(),
+              const SizedBox(height: 30),
+              Text('Welcome to Oralyn',
+                  style: Theme.of(context).textTheme.headlineMedium),
+              const SizedBox(height: 10),
+              const Text(
+                  'Choose how you use Oralyn. Your access is verified after sign in.'),
+              const SizedBox(height: 28),
+              FilledButton.icon(
+                onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
+                icon: const Icon(Icons.person_outline),
+                label: const Text('Continue as Patient'),
+              ),
+              TextButton(
+                onPressed: () =>
+                    Navigator.pushNamed(context, AppRoutes.register),
+                child: const Text('Register as Patient'),
+              ),
+              const SizedBox(height: 18),
+              OutlinedButton.icon(
+                onPressed: () =>
+                    Navigator.pushNamed(context, AppRoutes.doctorLogin),
+                icon: const Icon(Icons.medical_services_outlined),
+                label: const Text('Continue as Doctor'),
+              ),
+              TextButton(
+                onPressed: () =>
+                    Navigator.pushNamed(context, AppRoutes.doctorRegister),
+                child: const Text('Apply as Doctor'),
+              ),
+              const SizedBox(height: 36),
+              Center(
+                  child: TextButton(
+                onPressed: () =>
+                    Navigator.pushNamed(context, AppRoutes.adminLogin),
+                child: const Text('Admin sign in'),
+              )),
+            ],
+          ),
         ),
       );
 }

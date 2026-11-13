@@ -111,7 +111,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void next() {
     if (page == pages.length - 1) {
-      Navigator.pushReplacementNamed(context, AppRoutes.login);
+      Navigator.pushReplacementNamed(context, AppRoutes.authChoice);
     } else {
       pageController.nextPage(
         duration: const Duration(milliseconds: 260),
@@ -141,7 +141,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   TextButton(
                     onPressed: () => Navigator.pushReplacementNamed(
                       context,
-                      AppRoutes.login,
+                      AppRoutes.authChoice,
                     ),
                     child: const Text(
                       'Skip',

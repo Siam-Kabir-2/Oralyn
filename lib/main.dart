@@ -59,8 +59,9 @@ class _OralynAppState extends State<OralynApp> {
                       children: [
                         const Text('Unable to connect to sign-in.'),
                         TextButton(
-                          onPressed: () =>
-                              setState(() => _authFuture = _initialize()),
+                          onPressed: () => setState(() {
+                            _authFuture = _initialize();
+                          }),
                           child: const Text('Retry'),
                         ),
                       ],

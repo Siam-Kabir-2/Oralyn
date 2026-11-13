@@ -6,6 +6,62 @@ import 'package:oralyn/services/doctor_case_service.dart';
 import 'package:oralyn/views/screens/doctors/doctor_workspace.dart';
 
 void main() {
+  testWidgets('Patient entering Doctor sign in sees application, not cases',
+      (tester) async {
+    var caseRequests = 0;
+    final service = DoctorCaseService(
+      client: MockClient((request) async {
+        if (request.url.path == '/doctor/cases') caseRequests++;
+        return http.Response('{"application_role":"patient"}', 200);
+      }),
+      predictionEndpoint: Uri.parse('https://example.test/predict'),
+      tokenProvider: () async => 'synthetic-session',
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: RoleHomeScreen(caseService: service, preferredRole: 'doctor'),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Apply as Doctor'), findsOneWidget);
+    expect(find.text('Continue as Patient'), findsOneWidget);
+    expect(caseRequests, 0);
+    service.close();
+  });
+
+  testWidgets('pending Doctor refresh enters workspace after verification',
+      (tester) async {
+    var verified = false;
+    var caseRequests = 0;
+    final service = DoctorCaseService(
+      client: MockClient((request) async {
+        if (request.url.path == '/me') {
+          return http.Response(
+              '{"application_role":"doctor",'
+              '"doctor_profiles":{"display_name":"Synthetic Doctor",'
+              '"verification_state":"${verified ? 'verified' : 'pending'}"}}',
+              200);
+        }
+        if (request.url.path == '/doctor/cases') {
+          caseRequests++;
+          return http.Response('{"items":[]}', 200);
+        }
+        return http.Response('{}', 404);
+      }),
+      predictionEndpoint: Uri.parse('https://example.test/predict'),
+      tokenProvider: () async => 'synthetic-session',
+    );
+    await tester
+        .pumpWidget(MaterialApp(home: RoleHomeScreen(caseService: service)));
+    await tester.pumpAndSettle();
+    expect(find.text('Application pending'), findsOneWidget);
+    expect(caseRequests, 0);
+    verified = true;
+    await tester.tap(find.text('Refresh status'));
+    await tester.pumpAndSettle();
+    expect(find.text('Doctor workspace'), findsOneWidget);
+    expect(caseRequests, 1);
+    service.close();
+  });
+
   testWidgets('role loading error links to screening server settings',
       (tester) async {
     final service = DoctorCaseService(

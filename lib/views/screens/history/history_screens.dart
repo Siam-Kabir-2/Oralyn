@@ -383,6 +383,28 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
                 label: 'Follow up',
                 value: doctorFeedback!['follow_up'] as String? ?? ''),
           ],
+          const SizedBox(height: 20),
+          Card(
+              child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Consultation / Chat with Doctor',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                Text(doctorFeedback == null
+                    ? 'Chat is not available. First request a review of this saved screening and wait for professional feedback.'
+                    : 'A Doctor review does not automatically open a conversation. Private chat requests and messaging are planned for a later release.'),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.lock_outline),
+                  label: const Text('Request chat · Coming Soon'),
+                ),
+              ],
+            ),
+          )),
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: deleting ? null : _delete,

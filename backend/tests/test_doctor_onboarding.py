@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from app.core.auth import AuthenticatedUser
 from app.core.config import Settings
 from app.main import create_app
+from app.persistence.supabase import SupabaseRepository
 
 
 class Verifier:
@@ -48,6 +49,11 @@ class Repository:
     async def update_doctor_profile(self, user_id, data):
         self.update = (user_id, data)
         self.state["doctor"] = "pending"
+
+    async def verified_doctors(self):
+        return [{"display_name": "Synthetic Verified Doctor",
+                 "specialization": "Oral medicine",
+                 "qualification": "Synthetic degree", "workplace": "Test clinic"}]
 
 
 class DoctorOnboardingTests(unittest.IsolatedAsyncioTestCase):
@@ -92,3 +98,30 @@ class DoctorOnboardingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.repo.update[0], "user_doctor")
         self.assertEqual((await self.call("PUT", "/doctor/profile", "doctor",
                                       {**self.details, "workplace": " "})).status_code, 422)
+
+    async def test_directory_requires_identity_and_exposes_only_public_fields(self):
+        self.assertEqual((await self.call("GET", "/doctors", None)).status_code, 401)
+        response = await self.call("GET", "/doctors")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["items"][0]["display_name"],
+                         "Synthetic Verified Doctor")
+        self.assertNotIn("clerk_user_id", response.text)
+        self.assertNotIn("registration_reference", response.text)
+
+    async def test_repository_directory_filters_verified_and_sanitizes_columns(self):
+        def handler(request):
+            self.assertEqual(request.url.params["verification_state"],
+                             "eq.verified")
+            self.assertEqual(request.url.params["select"],
+                             "display_name,specialization,qualification,workplace")
+            self.assertNotIn("authorization", request.headers)
+            return httpx.Response(200, json=[{"display_name": "Test Doctor"}])
+
+        settings = Settings(model_dir=Path("unused"),
+            supabase_url="https://example.supabase.co",
+            supabase_publishable_key="sb_publishable_test",
+            supabase_secret_key="sb_secret_test")
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            repository = SupabaseRepository(settings, client=client)
+            self.assertEqual((await repository.verified_doctors())[0]
+                             ["display_name"], "Test Doctor")

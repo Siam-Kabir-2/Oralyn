@@ -10,6 +10,20 @@ from app.persistence.supabase import PersistenceConflict, PersistenceUnavailable
 router = APIRouter(tags=["doctor-onboarding"])
 
 
+@router.get("/doctors")
+async def verified_doctors(
+    request: Request, identity: AuthenticatedUser = Depends(authenticated_user),
+):
+    repository = _repository(request)
+    try:
+        await repository.identity_profile(request.state.session_token, identity.user_id)
+        return {"items": await repository.verified_doctors()}
+    except PersistenceUnavailable:
+        raise HTTPException(503, "Doctor directory is temporarily unavailable") from None
+    finally:
+        await repository.close()
+
+
 class DoctorProfileInput(BaseModel):
     display_name: str = Field(min_length=2, max_length=160)
     specialization: str = Field(min_length=2, max_length=160)

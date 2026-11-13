@@ -126,6 +126,18 @@ class SupabaseRepository:
             raise PermissionError("Doctor profile is unavailable")
         return response.json()[0]
 
+    async def verified_doctors(self) -> list[dict[str, Any]]:
+        response = await self._request(
+            "GET", f"{self.url}/rest/v1/doctor_profiles",
+            headers=self._admin_headers(),
+            params={"select": "display_name,specialization,qualification,workplace",
+                    "verification_state": "eq.verified", "order": "display_name.asc",
+                    "limit": "100"},
+        )
+        if response.status_code != 200:
+            raise PersistenceUnavailable("Could not load verified Doctors")
+        return response.json()
+
     async def update_doctor_profile(self, user_id: str, data: dict[str, str]) -> None:
         response = await self._request(
             "POST", f"{self.url}/rest/v1/rpc/update_my_doctor_profile",

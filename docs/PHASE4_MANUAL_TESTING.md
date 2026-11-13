@@ -39,28 +39,66 @@ It prints only file/configuration presence and schema status. It never prints
 keys and never changes the database. The six Phase 3C schema checks should now
 all report `OK`.
 
-## 1. Apply and verify Phase 3C in development
+## 1. Verify Phase 3C and apply Doctor onboarding in development
 
 This step changes the selected Supabase database. In the Supabase Dashboard,
 check the project name and URL carefully and continue only if it is the
 existing Oralyn development project. Stop if there is any doubt.
 
-1. Open **Supabase Dashboard → SQL Editor → New query**.
-2. Copy the migration from the repository:
+Phase 3C has already been applied to project `arokswvcjddbzwthtqkh` and its
+26 assertions passed. **Do not run the Phase 3C migration again.** The Doctor
+onboarding migration below is a separate, one-time change. Check that the
+Dashboard project reference is `arokswvcjddbzwthtqkh`; the Dashboard may label
+its `main` branch **PRODUCTION** even though this project is used only for
+disposable development records. On the Free plan there are no scheduled
+backups. Export any development data you need to retain before proceeding.
+
+1. Open **Supabase Dashboard → SQL Editor → New query** for that project.
+2. Copy the new migration from the repository:
 
    ```powershell
    Get-Content `
-     '.\supabase\migrations\202611120001_phase3c_authorization.sql' `
+     '.\supabase\migrations\202611130001_doctor_onboarding.sql' `
      -Raw | Set-Clipboard
    ```
 
-3. Paste it into the SQL Editor. Confirm the editor is connected to the
-   development project, then select **Run** once.
-4. Do not rerun a successful migration. It is intentionally a one-time,
-   versioned migration.
-5. Run the prerequisite checker again. Every schema check should be `OK`.
+3. Confirm the SQL begins with `begin;` and ends with `commit;`. Paste it,
+   confirm the project reference again, then select **Run** once.
+4. Do not rerun it after success. Check `profiles.application_role` accepts
+   `admin`, `doctor_profiles.workplace` exists, and both
+   `apply_doctor_candidate` and `update_my_doctor_profile` exist. If SQL
+   reports an existing object or any other error, stop and inspect; do not
+   delete schema objects to force a retry.
+5. Copy `supabase/tests/doctor_onboarding_checks.sql` into a **new** SQL query
+   and run it. Expect 13 passing pgtap assertions, no `finish()` failures,
+   and a final `rollback` that removes its synthetic rows.
 
-Run the transaction-contained authorization suite next:
+Use this read-only query for step 4. All three booleans should be `true`, and
+the constraint definition should contain `admin`:
+
+```sql
+select
+  exists (select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'doctor_profiles'
+      and column_name = 'workplace') as has_workplace,
+  to_regprocedure('public.apply_doctor_candidate(text,text,text,text,text,text)')
+    is not null as has_application_function,
+  to_regprocedure('public.update_my_doctor_profile(text,text,text,text,text,text)')
+    is not null as has_profile_function,
+  (select pg_get_constraintdef(oid) from pg_constraint
+    where conrelid = 'public.profiles'::regclass
+      and conname = 'profiles_application_role') as role_constraint;
+```
+
+Copy the 13-assertion test file from the repository:
+
+```powershell
+Get-Content '.\supabase\tests\doctor_onboarding_checks.sql' -Raw |
+  Set-Clipboard
+```
+
+The existing Phase 3C authorization suite can also be rerun after the new
+migration. It contains 26 assertions and rolls back its synthetic rows:
 
 ```powershell
 Get-Content `
@@ -76,9 +114,8 @@ active/revoked assignments, stale review versions, finalized feedback, and
 Patient/Doctor private Storage RLS.
 
 If `pgtap` cannot be created, enable the pgtap extension for the development
-project and rerun the test query. If the migration reports that an object
-already exists, stop rather than editing around the error. Use this read-only
-query to inspect what exists:
+project and rerun the test query. Use this read-only query to inspect the
+Phase 3C prerequisite objects:
 
 ```sql
 select
@@ -196,7 +233,7 @@ flow; an address containing `+clerk_test` can use the test verification code
 `424242`. If that dashboard feature is disabled, use controlled development
 inboxes instead.
 
-For each account:
+For each Patient account:
 
 1. Register in Oralyn and complete email verification.
 2. Confirm the protected home screen opens.
@@ -204,25 +241,24 @@ For each account:
    or share its session token.
 4. Sign out before creating the next account.
 
-Expected result: new accounts are Patients. An ordinary account has no UI or
-database permission to promote itself, verify a Doctor or assign a case.
-
-Promote only Doctor A using Supabase SQL Editor. Replace the placeholder with
-Doctor A's Clerk user ID:
+Expected result: new Patient accounts remain Patients. For Doctor A, use
+**Apply as Doctor** in the app, complete Clerk registration and verification,
+then submit synthetic full name, registration number, qualification,
+specialization and workplace. Do not use `enroll_doctor_candidate` for this
+onboarding test: that older trusted RPC would skip the new app application
+flow. Expected result: **Application pending**, with no case data. Record
+Doctor A's `user_...` ID from Clerk Dashboard → Users. Confirm the pending
+record in Supabase SQL Editor:
 
 ```sql
-select public.enroll_doctor_candidate(
-  'user_REPLACE_WITH_DOCTOR_ID',
-  'Synthetic Doctor A',
-  'Oral medicine test profile',
-  'Synthetic qualification',
-  'TEST-REG-001',
-  'phase4-manual-test'
-);
+select display_name, specialization, qualification, workplace,
+       verification_state
+from public.doctor_profiles
+where clerk_user_id = 'user_REPLACE_WITH_DOCTOR_ID';
 ```
 
-Sign in as Doctor A before verification. Expected result: the Doctor workspace
-shows `Verification pending` and no case data. Then verify the test Doctor:
+Only after confirming that pending record, verify the synthetic Doctor using
+the trusted operator function in Supabase SQL Editor:
 
 ```sql
 select public.set_doctor_verification(
@@ -232,9 +268,10 @@ select public.set_doctor_verification(
 );
 ```
 
-Sign out and back in, or force-stop and reopen Oralyn. Expected result:
-`Verification active` appears. Doctor verification remains read-only in the
-app.
+Tap **Refresh status** or sign out and back in. Expected result: the existing
+Doctor workspace opens with **Verification active**. Doctor verification
+remains read-only in the app. Editing a verified professional profile should
+return it to pending until a trusted operator verifies it again.
 
 ## 6. Create and load a synthetic image
 
@@ -256,7 +293,7 @@ $syntheticImage
 Copy it to the connected phone after the Android SDK is installed:
 
 ```powershell
-$adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
+$adb = 'O:\.tooling\android-sdk\platform-tools\adb.exe'
 & $adb push $syntheticImage /sdcard/Download/oralyn-synthetic.png
 ```
 
@@ -381,6 +418,22 @@ select public.set_doctor_verification(
   'phase4-manual-test'
 );
 ```
+
+### Doctor profile and communication checks
+
+As verified Doctor A, open **My Doctor Profile**. Confirm the submitted
+professional fields and verification status appear. Edit a synthetic
+professional field and save. Expected: verification returns to **pending**,
+the case workspace is restricted, and a trusted operator must verify the
+record again. Repeat the `set_doctor_verification` call above only after
+reviewing the changed test profile.
+
+On Patient A's saved screening, **Request chat · Coming Soon** must be
+disabled. In the Doctor workspace, **Messages · Coming Soon** shows no real
+chat requests or conversations; **Approve**, **Decline**, and **Send** are
+disabled. Structured Doctor feedback remains available through the existing
+review flow. Admin sign-in has no public registration or working Admin
+dashboard in this branch.
 
 ## 10. Automated verification commands
 

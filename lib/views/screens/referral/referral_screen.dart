@@ -94,6 +94,9 @@ class ReferralScreen extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, AppRoutes.map),
           ),
           const SizedBox(height: 10),
+          const Text(
+              'Care locations below are illustrative demo entries. Use Find Care for verified Oralyn Doctor profiles.'),
+          const SizedBox(height: 10),
           ...nearby.map(
             (doctor) => Padding(
               padding: const EdgeInsets.only(bottom: 12),

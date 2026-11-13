@@ -10,7 +10,7 @@ class Doctor {
     required this.qualifications,
     required this.phone,
     required this.bio,
-    this.verified = true,
+    this.verified = false,
   });
 
   final String id;

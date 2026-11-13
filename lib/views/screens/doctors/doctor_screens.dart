@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 
-import '../../../controllers/doctor_controller.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/mock/mock_data.dart';
 import '../../../models/doctor.dart';
 import '../../widgets/common/app_components.dart';
+import 'verified_doctor_screens.dart';
 
 class DoctorsScreen extends StatelessWidget {
   const DoctorsScreen({super.key});
 
   @override
   Widget build(BuildContext context) =>
-      const SafeArea(child: _DoctorDirectory(embedded: true));
+      const SafeArea(child: VerifiedDoctorDirectory(embedded: true));
 }
 
 class DoctorSearchScreen extends StatelessWidget {
@@ -21,237 +21,7 @@ class DoctorSearchScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Doctor Search')),
-        body: const SafeArea(child: _DoctorDirectory()),
-      );
-}
-
-class _DoctorDirectory extends StatefulWidget {
-  const _DoctorDirectory({this.embedded = false});
-  final bool embedded;
-
-  @override
-  State<_DoctorDirectory> createState() => _DoctorDirectoryState();
-}
-
-class _DoctorDirectoryState extends State<_DoctorDirectory> {
-  final controller = DoctorController();
-  final search = TextEditingController();
-  String filter = 'All';
-  static const filters = [
-    'All',
-    'Dentist',
-    'Oral Medicine',
-    'Oral & Maxillofacial',
-    'Hospital',
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    controller.addListener(_refresh);
-    controller.load();
-  }
-
-  void _refresh() {
-    if (mounted) setState(() {});
-  }
-
-  void load() => controller.load(query: search.text, filter: filter);
-
-  @override
-  void dispose() {
-    controller.removeListener(_refresh);
-    controller.dispose();
-    search.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: EdgeInsets.fromLTRB(22, widget.embedded ? 22 : 6, 22, 30),
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      children: [
-        if (widget.embedded)
-          const AppHeader(
-            title: 'Find Care',
-            subtitle: 'Discover nearby dental and oral health professionals.',
-          ),
-        if (widget.embedded) const SizedBox(height: 22),
-        TextField(
-          controller: search,
-          onChanged: (_) => load(),
-          decoration: InputDecoration(
-            hintText: 'Search doctor, clinic or specialty',
-            prefixIcon: const Icon(Icons.search_rounded),
-            suffixIcon: search.text.isEmpty
-                ? null
-                : IconButton(
-                    onPressed: () {
-                      search.clear();
-                      load();
-                    },
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-          ),
-        ),
-        const SizedBox(height: 14),
-        SizedBox(
-          height: 39,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: filters.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (_, index) => FilterChip(
-              label: Text(filters[index]),
-              selected: filter == filters[index],
-              onSelected: (_) {
-                setState(() => filter = filters[index]);
-                load();
-              },
-              showCheckmark: false,
-              selectedColor: const Color(0xFFDCEFEB),
-              backgroundColor: Colors.white,
-              side: const BorderSide(color: AppColors.divider),
-              labelStyle: TextStyle(
-                color: filter == filters[index]
-                    ? AppColors.ink
-                    : AppColors.secondaryText,
-                fontWeight: filter == filters[index]
-                    ? FontWeight.w600
-                    : FontWeight.w400,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 17),
-        Row(
-          children: [
-            const Icon(
-              Icons.location_on_outlined,
-              color: AppColors.teal,
-              size: 18,
-            ),
-            const SizedBox(width: 6),
-            const Expanded(
-              child: Text(
-                'Near Dhanmondi, Dhaka',
-                style: TextStyle(
-                  fontSize: 13.5,
-                  color: AppColors.secondaryText,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pushNamed(context, AppRoutes.map),
-              child: const Text('Map', style: TextStyle(color: AppColors.teal)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (controller.loading)
-          ...List.generate(4, (_) => const _DoctorSkeleton())
-        else if (controller.errorMessage != null)
-          ErrorState(
-            title: 'Care directory unavailable',
-            message: controller.errorMessage!,
-            onRetry: load,
-          )
-        else if (controller.doctors.isEmpty)
-          EmptyState(
-            title: 'No matching facilities found nearby',
-            message: 'Try a broader specialty or clear your search.',
-            actionLabel: 'Expand Search Area',
-            onAction: () {
-              search.clear();
-              setState(() => filter = 'All');
-              load();
-            },
-            icon: Icons.location_searching_rounded,
-          )
-        else
-          ...controller.doctors.map(
-            (doctor) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: DoctorCard(
-                doctor: doctor,
-                onTap: () => Navigator.pushNamed(
-                  context,
-                  AppRoutes.doctorDetail,
-                  arguments: doctor,
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _DoctorSkeleton extends StatelessWidget {
-  const _DoctorSkeleton();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        height: 130,
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 64,
-              height: 72,
-              decoration: BoxDecoration(
-                color: AppColors.divider,
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    height: 13,
-                    decoration: BoxDecoration(
-                      color: AppColors.divider,
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  FractionallySizedBox(
-                    widthFactor: .7,
-                    child: Container(
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF0F3F4),
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  FractionallySizedBox(
-                    widthFactor: .85,
-                    child: Container(
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF0F3F4),
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+        body: const SafeArea(child: VerifiedDoctorDirectory()),
       );
 }
 
@@ -277,6 +47,9 @@ class DoctorDetailScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
         children: [
+          const Text(
+              'Illustrative care-location profile. Contact details and availability are demo content.'),
+          const SizedBox(height: 12),
           const Center(
             child: SizedBox(
               width: 112,

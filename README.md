@@ -1,126 +1,83 @@
 # Oralyn
 
-Flutter mobile app for camera-assisted oral screening, prevention guidance,
-referral support, and nearby care discovery.
+Oralyn is a Flutter app and FastAPI service for AI-assisted oral image screening. It supports Clerk sign-in, private screening history, Patient review requests, and a verified Doctor case workflow backed by Supabase. Screening output is guidance for follow-up, not a diagnosis. Nearby-care listings remain demonstration data.
 
-The camera and gallery use the phone's native photo picker, and the captured
-photo is previewed throughout the screening flow. When screening starts, the
-photo is uploaded to the configured FastAPI prediction service. Authentication
-uses the existing Clerk development application. Saved screening history and
-the Phase 4 review workflow use Supabase; nearby-care discovery remains
-prototype data.
+## Repository
 
-## Prediction API configuration
+| Path | Purpose |
+| --- | --- |
+| `lib/`, `test/`, `android/` | Flutter app and tests |
+| `backend/` | FastAPI application, dependency lists, and backend tests |
+| `supabase/migrations/`, `supabase/tests/` | Versioned database SQL and authorization checks |
+| `docs/` | Architecture, security notes, and manual verification |
+| `Start-Oralyn-Server.ps1` | Windows development launcher for FastAPI and a Cloudflare Quick Tunnel |
 
-The app includes a development Cloudflare Quick Tunnel URL that may have
-expired. The base URL can be
-changed on the phone from **Profile → Screening server**. If a screening
-request fails, the error screen also provides **Update Server URL**.
+The complete FastAPI **source** is in this repository under `backend/`. The separate `D:\oralyn-backend` directory used on the development workstation is a private runtime: it contains a Python virtual environment, model checkpoints, a local `.env`, and `cloudflared.exe`. Its older `main.py` is not the application launched by this repository. Do not commit the runtime directory, credentials, checkpoints, or patient images.
 
-The existing Clerk development publishable key is public and included as a
-default. Override it for another Clerk instance at build or run time:
+## Local requirements
 
-```powershell
-.\.tooling\flutter\bin\flutter.bat run `
-  --dart-define=CLERK_PUBLISHABLE_KEY=<publishable-key>
+- Flutter 3.47.5 and Dart 3.13.4 were used for the current app build.
+- An Android SDK and JDK 17 are needed for Android builds.
+- Python 3.13 was used for backend verification; install dependencies from `backend/requirements.txt`.
+- The two existing ResNet50 checkpoints must be present in the private model directory as `resnet50_smartom_best.pth` and `resnet50_bmiocd_binary_best.pth`.
+- Use the existing Clerk and Supabase development projects for live testing.
+
+The Windows launcher expects the private runtime at `D:\oralyn-backend` by default. Pass `-RuntimeRoot` to use another location. It expects `<RuntimeRoot>\.venv\Scripts\python.exe`, `<RuntimeRoot>\models\`, `<RuntimeRoot>\.env`, and `<RuntimeRoot>\cloudflared.exe`.
+
+Place backend configuration in the private `.env`:
+
+```dotenv
+SUPABASE_URL=https://YOUR-DEVELOPMENT-PROJECT.supabase.co
+SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
+SUPABASE_SECRET_KEY=YOUR_SERVER_SECRET_KEY
+SUPABASE_STORAGE_BUCKET=screening-images
 ```
 
-You can still override the initial default URL at build time:
+`CLERK_ISSUER` is required for direct backend launches. The Windows launcher supplies the public issuer of the existing development instance if it is unset. `CLERK_AUTHORIZED_PARTIES` and `CLERK_AUDIENCE` are optional claim restrictions. Never put server secrets in Flutter or `--dart-define`.
+
+## Start FastAPI
+
+From the repository root in PowerShell:
 
 ```powershell
-.\.tooling\flutter\bin\flutter.bat run `
-  --dart-define=ORALYN_API_BASE_URL=https://new-host.example
+.\Start-Oralyn-Server.ps1 -RuntimeRoot 'D:\oralyn-backend'
 ```
 
-The current default endpoint is
-`https://manufacturing-yea-guild-roommates.trycloudflare.com/predict`. The app
-sends a multipart `POST` using the `image` field and a short-lived Clerk
-session token in the `Authorization: Bearer` header. The legacy shared mobile
-API key is no longer accepted by `/predict`.
+The launcher runs the tracked `backend/main.py` application on `http://127.0.0.1:8000`, waits for both models, then starts a Cloudflare Quick Tunnel. Confirm `/health` returns `{"status":"healthy"}`. Keep the launcher running while testing; a new Quick Tunnel usually gets a new HTTPS URL.
 
-FastAPI exposes interactive Swagger documentation at `/docs`; documentation
-URLs such as `/docs/predict` are not API routes. The in-app URL editor corrects
-those pasted documentation URLs to `/predict` automatically.
+On the phone, open **Profile → Screening server** and enter the current `https://...trycloudflare.com` origin. The app appends `/predict`. The account-profile error screen also has a **Screening server** button. A saved URL on the phone can outlive the tunnel, so update it after a tunnel restart.
 
-Cloudflare Quick Tunnel URLs can change when `cloudflared` restarts. Use a named
-tunnel with a stable hostname for distributed builds.
+The API accepts a multipart `image` at `POST /predict` with a short-lived Clerk bearer token. The established response fields, model class mapping, conditional second-model inference, and Grad-CAM behavior are retained. Uploads are limited to 10 MB of image data and 4 million decoded pixels. `/docs` serves the local API documentation.
 
-## Start the backend and tunnel
+## Run the Flutter app
 
-The FastAPI source is tracked in `.backend-work/`. The local Python environment,
-model checkpoints, `.env`, and `cloudflared.exe` remain outside Git in
-`D:\oralyn-backend`. The launcher runs the tracked source and points it to those
-private runtime files:
+From the repository root, with an Android device connected:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Start-Oralyn-Server.ps1
+flutter pub get
+flutter devices
+flutter run --dart-define=ORALYN_API_BASE_URL=https://YOUR-CURRENT-TUNNEL.trycloudflare.com
 ```
 
-Wait for Cloudflare to print its `https://...trycloudflare.com` URL. Keep that
-terminal open, then open **Profile → Screening server** in Oralyn and paste the
-URL. The app automatically adds `/predict`. Closing the terminal stops the
-backend/tunnel, and restarting a Quick Tunnel produces a new URL.
+The existing Clerk development publishable key is the app default. For another Clerk application, supply the **public** key with `--dart-define=CLERK_PUBLISHABLE_KEY=...`. Do not supply a Clerk secret key.
 
-The backend loads both checkpoints once at startup. `/health` reports healthy
-only when screening models are ready. `/predict` retains its multipart `image`
-field, response fields, class mapping, and conditional
-second-model behavior. Uploads are limited to 10 MB of image data, with a 64 KB
-multipart allowance and a 4 million decoded-pixel limit. The mobile picker
-resizes images to at most 1600 px on either side.
+On the development workstation, the repository path contains a space. Flutter's native-asset tooling has required the space-free `O:\` alias; run Flutter from `O:\` if the build fails because of the path. The local Flutter SDK is in ignored `.tooling/flutter/`. See [the manual testing guide](docs/PHASE4_MANUAL_TESTING.md) for device setup, synthetic accounts, Doctor verification, and the complete Patient-to-Doctor test sequence.
 
-Backend checks use generated images; no patient images are included:
+## Verification
 
 ```powershell
-cd .backend-work
-python -m pip install -r requirements-dev.txt
-python -m unittest discover -s tests -v
+flutter analyze
+flutter test
+
+Push-Location .\backend
+& 'D:\oralyn-backend\.venv\Scripts\python.exe' -m unittest discover -s tests -v
 $env:ORALYN_MODEL_DIR = 'D:\oralyn-backend\models'
-python backend_gradcam_smoke_test.py
-# With CLERK_ISSUER and ORALYN_TEST_SESSION_TOKEN set privately:
-python backend_live_integration_test.py
+& 'D:\oralyn-backend\.venv\Scripts\python.exe' .\backend_gradcam_smoke_test.py
+Pop-Location
 ```
 
-The real-checkpoint checks need the local model files; the contract tests do
-not. The launcher sets `CLERK_ISSUER` to the existing development issuer;
-deployments can set `CLERK_AUTHORIZED_PARTIES` and `CLERK_AUDIENCE` to restrict
-token claims. The live integration script requires `ORALYN_TEST_SESSION_TOKEN`
-from a signed-in test account. See the [Phase 3A report](docs/PHASE3A_AUTH.md)
-before using real patient records.
+The backend tests use synthetic images and mocked inference. The checkpoint smoke test needs the private model files. The database pgtap suite is in `supabase/tests/`; run it only against an authorized development project. The current development project passed all 26 Phase 3C SQL assertions. The full Android Patient-to-Doctor workflow still requires manual verification.
 
-## Lightweight development
+Build an Android APK with `flutter build apk --release`; Flutter writes it to `build/app/outputs/flutter-apk/app-release.apk`. The current development release uses an Android debug signing certificate and is not suitable for production distribution.
 
-The project includes a local Flutter SDK in `.tooling/` (ignored by Git). Android
-Studio and an emulator are not required; a physical Android phone can be used.
-
-```powershell
-cd O:\
-& 'O:\.tooling\flutter\bin\flutter.bat' pub get
-& 'O:\.tooling\flutter\bin\flutter.bat' run
-```
-
-Use `O:\.tooling\flutter\bin\flutter.bat run` with a configured physical Android
-device when the Android command-line SDK is available. This workstation uses
-`O:\` as a space-free alias of the repository because the Dart native-asset
-hook does not handle the spaced workspace path correctly.
-
-Static verification:
-
-```powershell
-& 'O:\.tooling\flutter\bin\flutter.bat' analyze
-& 'O:\.tooling\flutter\bin\flutter.bat' test
-```
-
-Mock doctors, facilities, screening history, and result scenarios are configured
-in `lib/data/mock/mock_data.dart`.
-
-Build an installable Android APK:
-
-```powershell
-.\.tooling\flutter\bin\flutter.bat build apk --release
-```
-
-The generated file is `build/app/outputs/flutter-apk/app-release.apk`.
-
-For Phase 4 database setup, synthetic accounts, assignment/revocation checks,
-and the complete Patient-to-Doctor workflow, follow
-[`docs/PHASE4_MANUAL_TESTING.md`](docs/PHASE4_MANUAL_TESTING.md).
+For architecture and security context, see [the design](docs/ARCHITECTURE_DESIGN.md), [backend report](docs/PHASE2_BACKEND.md), and [manual testing guide](docs/PHASE4_MANUAL_TESTING.md).

@@ -8,8 +8,19 @@ import '../profile/profile_screens.dart';
 import 'home_screen.dart';
 
 class MainShell extends StatefulWidget {
-  const MainShell({super.key, this.initialIndex = 0});
+  const MainShell({
+    super.key,
+    this.initialIndex = 0,
+    this.connectionUnavailable = false,
+    this.connectionPending = false,
+    this.onRetryConnection,
+    this.detailRouteFactory,
+  });
   final int initialIndex;
+  final bool connectionUnavailable;
+  final bool connectionPending;
+  final VoidCallback? onRetryConnection;
+  final RouteFactory? detailRouteFactory;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -17,22 +28,102 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   late int index = widget.initialIndex.clamp(0, 3);
-  final pages = const [
+  final _navigatorKeys = List.generate(4, (_) => GlobalKey<NavigatorState>());
+  final _tabNavigators = List<Widget?>.filled(4, null);
+  static const pages = [
     HomeScreen(),
     HistoryScreen(),
     DoctorsScreen(),
     ProfileScreen(),
   ];
 
-  void select(int value) {
-    setState(() => index = value);
+  @override
+  void initState() {
+    super.initState();
+    _tabNavigators[index] = _tabNavigator(index);
   }
+
+  void select(int value) {
+    if (index == value) {
+      _navigatorKeys[value].currentState?.popUntil((route) => route.isFirst);
+    } else {
+      setState(() {
+        index = value;
+        _tabNavigators[value] ??= _tabNavigator(value);
+      });
+    }
+  }
+
+  Widget _tabNavigator(int tabIndex) => Navigator(
+        key: _navigatorKeys[tabIndex],
+        onGenerateRoute: (settings) =>
+            settings.name == Navigator.defaultRouteName
+                ? MaterialPageRoute<void>(
+                    settings: settings,
+                    builder: (_) => pages[tabIndex],
+                  )
+                : widget.detailRouteFactory?.call(settings) ??
+                    AppRoutes.onGenerateRoute(settings),
+      );
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBody: true,
-      body: IndexedStack(index: index, children: pages),
+      extendBody: false,
+      body: Column(children: [
+        if (widget.connectionUnavailable)
+          Material(
+            color: AppColors.warningSoft,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Row(children: [
+                  widget.connectionPending
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.cloud_off_outlined,
+                          color: AppColors.warning, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      widget.connectionPending
+                          ? 'Connecting to the server. You can browse the app now.'
+                          : 'Server unavailable. Browse the app, then reconnect for private records and screening.',
+                      style: const TextStyle(fontSize: 12.5),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Retry connection',
+                    onPressed: widget.connectionPending
+                        ? null
+                        : widget.onRetryConnection,
+                    icon: const Icon(Icons.refresh_rounded),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      await _navigatorKeys[index]
+                          .currentState
+                          ?.pushNamed(AppRoutes.apiSettings);
+                      widget.onRetryConnection?.call();
+                    },
+                    child: const Text('Set up'),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+        Expanded(
+          child: IndexedStack(
+            index: index,
+            children: List.generate(
+                4, (tabIndex) => _tabNavigators[tabIndex] ?? const SizedBox()),
+          ),
+        ),
+      ]),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         child: SizedBox(
@@ -96,8 +187,9 @@ class _MainShellState extends State<MainShell> {
                 shadowColor: AppColors.coral,
                 child: InkWell(
                   customBorder: const CircleBorder(),
-                  onTap: () =>
-                      Navigator.pushNamed(context, AppRoutes.preparation),
+                  onTap: () => _navigatorKeys[index]
+                      .currentState
+                      ?.pushNamed(AppRoutes.preparation),
                   child: const SizedBox(
                     width: 62,
                     height: 62,

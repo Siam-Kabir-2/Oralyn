@@ -5,6 +5,7 @@ import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/screening_result.dart';
 import '../../../services/screening_history_service.dart';
+import '../../../services/screening_history_updates.dart';
 import '../../../services/review_request_service.dart';
 import '../../widgets/common/app_components.dart';
 
@@ -19,12 +20,23 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late final ScreeningHistoryRepository repository =
       widget.historyRepository ?? ScreeningHistoryApiRepository();
-  late final Future<List<ScreeningResult>> history = repository.list();
+  late Future<List<ScreeningResult>> history = repository.list();
   final ReviewRequestService reviewService = ReviewRequestService();
   late final Future<List<ReviewRequestStatus>> reviews = reviewService.list();
 
   @override
+  void initState() {
+    super.initState();
+    ScreeningHistoryUpdates.instance.addListener(_refreshHistory);
+  }
+
+  void _refreshHistory() {
+    if (mounted) setState(() => history = repository.list());
+  }
+
+  @override
   void dispose() {
+    ScreeningHistoryUpdates.instance.removeListener(_refreshHistory);
     if (widget.historyRepository == null) repository.close();
     reviewService.close();
     super.dispose();
@@ -188,7 +200,9 @@ class _HomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = ClerkAuth.userOf(context)?.name.trim();
+    final name = context.findAncestorWidgetOfExactType<ClerkAuth>() == null
+        ? null
+        : ClerkAuth.userOf(context)?.name.trim();
     final displayName = name == null || name.isEmpty ? 'Oralyn member' : name;
     final parts = displayName.split(RegExp(r'\s+'));
     final initials = parts.take(2).map((part) => part[0]).join().toUpperCase();

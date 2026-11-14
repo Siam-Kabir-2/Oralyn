@@ -12,6 +12,7 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasClerk = context.findAncestorWidgetOfExactType<ClerkAuth>() != null;
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(22, 22, 22, 32),
@@ -39,12 +40,14 @@ class ProfileScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      ClerkAuth.userOf(context)?.name ?? 'Oralyn member',
+                      (hasClerk ? ClerkAuth.userOf(context)?.name : null) ??
+                          'Oralyn member',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      ClerkAuth.userOf(context)?.email ?? '',
+                      (hasClerk ? ClerkAuth.userOf(context)?.email : null) ??
+                          '',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -139,8 +142,9 @@ class ProfileScreen extends StatelessWidget {
               try {
                 await ClerkAuth.of(context, listen: false).signOut();
                 if (context.mounted) {
-                  Navigator.pushNamedAndRemoveUntil(
-                      context, AppRoutes.login, (_) => false);
+                  Navigator.of(context, rootNavigator: true)
+                      .pushNamedAndRemoveUntil(
+                          AppRoutes.authChoice, (_) => false);
                 }
               } catch (_) {
                 if (context.mounted) {

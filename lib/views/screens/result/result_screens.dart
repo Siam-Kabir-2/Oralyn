@@ -10,6 +10,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../models/screening_result.dart';
 import '../../../models/screening_session.dart';
 import '../../../services/screening_history_service.dart';
+import '../../../services/screening_history_updates.dart';
 import '../../widgets/common/app_components.dart';
 
 class ResultScreen extends StatefulWidget {
@@ -57,6 +58,7 @@ class _ResultScreenState extends State<ResultScreen> {
         saving = false;
         saved = true;
       });
+      ScreeningHistoryUpdates.instance.saved();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Screening saved to your private history.')),
@@ -85,8 +87,8 @@ class _ResultScreenState extends State<ResultScreen> {
         centerTitle: true,
         title: const Text('Screening result'),
         leading: IconButton(
-          onPressed: () => Navigator.pushNamedAndRemoveUntil(
-            context,
+          onPressed: () => Navigator.of(context, rootNavigator: true)
+              .pushNamedAndRemoveUntil(
             AppRoutes.home,
             (_) => false,
           ),

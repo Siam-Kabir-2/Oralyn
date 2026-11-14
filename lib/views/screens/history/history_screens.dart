@@ -8,6 +8,7 @@ import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/screening_result.dart';
 import '../../../services/screening_history_service.dart';
+import '../../../services/screening_history_updates.dart';
 import '../../../services/review_request_service.dart';
 import '../../widgets/common/app_components.dart';
 
@@ -30,8 +31,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
   void initState() {
     super.initState();
     controller.addListener(_refresh);
+    ScreeningHistoryUpdates.instance.addListener(_onScreeningSaved);
     controller.load();
   }
+
+  void _onScreeningSaved() => controller.load();
 
   void _refresh() {
     if (mounted) setState(() {});
@@ -40,6 +44,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   void dispose() {
     controller.removeListener(_refresh);
+    ScreeningHistoryUpdates.instance.removeListener(_onScreeningSaved);
     controller.dispose();
     if (widget.repository == null) repository.close();
     super.dispose();

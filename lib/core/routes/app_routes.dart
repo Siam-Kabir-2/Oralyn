@@ -184,13 +184,8 @@ class _AuthRoute extends StatelessWidget {
         }
         return isAuthRoute ? const RoleHomeScreen() : child;
       },
-      signedOutBuilder: (_, __) => isAuthRoute
-          ? child
-          : routeName == AppRoutes.doctorApply ||
-                  routeName == AppRoutes.doctorProfile ||
-                  routeName == AppRoutes.doctorMessages
-              ? const LoginScreen(sessionExpired: true, role: 'doctor')
-              : const LoginScreen(sessionExpired: true),
+      signedOutBuilder: (_, __) =>
+          isAuthRoute ? child : const AuthChoiceScreen(),
     );
   }
 }

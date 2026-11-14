@@ -9,6 +9,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: AuthChoiceScreen()));
     expect(find.text('Continue as Patient'), findsOneWidget);
     expect(find.text('Apply as Doctor'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Admin sign in'), 200);
     expect(find.text('Admin sign in'), findsOneWidget);
     expect(find.text('Register as Admin'), findsNothing);
   });

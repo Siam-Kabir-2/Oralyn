@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -6,6 +8,30 @@ import 'package:oralyn/services/doctor_case_service.dart';
 import 'package:oralyn/views/screens/doctors/doctor_workspace.dart';
 
 void main() {
+  testWidgets('app remains navigable while role lookup is pending',
+      (tester) async {
+    final roleResponse = Completer<http.Response>();
+    final service = DoctorCaseService(
+      client: MockClient((request) async {
+        if (request.url.path == '/me') return roleResponse.future;
+        return http.Response('{}', 503);
+      }),
+      predictionEndpoint: Uri.parse('https://example.test/predict'),
+      tokenProvider: () async => 'synthetic-session',
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: RoleHomeScreen(caseService: service),
+    ));
+    await tester.pump();
+    expect(find.textContaining('Connecting to the server'), findsOneWidget);
+    expect(find.text('Home'), findsOneWidget);
+
+    roleResponse.complete(http.Response('{"application_role":"patient"}', 200));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Connecting to the server'), findsNothing);
+    service.close();
+  });
+
   testWidgets('Patient entering Doctor sign in sees application, not cases',
       (tester) async {
     var caseRequests = 0;
@@ -62,7 +88,7 @@ void main() {
     service.close();
   });
 
-  testWidgets('role loading error links to screening server settings',
+  testWidgets('role loading error allows browsing before server setup',
       (tester) async {
     final service = DoctorCaseService(
       client: MockClient((_) async => http.Response('{}', 503)),
@@ -73,8 +99,9 @@ void main() {
       home: RoleHomeScreen(caseService: service),
     ));
     await tester.pumpAndSettle();
-    expect(find.text('Account profile is unavailable.'), findsOneWidget);
-    expect(find.text('Screening server'), findsOneWidget);
+    expect(find.textContaining('Server unavailable.'), findsOneWidget);
+    expect(find.text('Set up'), findsOneWidget);
+    expect(find.text('Home'), findsOneWidget);
     service.close();
   });
 
@@ -141,7 +168,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Case screening-1'), findsOneWidget);
     expect(find.textContaining('1 assigned'), findsOneWidget);
-    await tester.tap(find.text('in review').first);
+    await tester.drag(find.byType(ListView).first, const Offset(0, -420));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ChoiceChip, 'in review'));
     await tester.pumpAndSettle();
     expect(find.text('No cases in this status.'), findsOneWidget);
     service.close();

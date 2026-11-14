@@ -44,19 +44,42 @@ class _DoctorApplicationScreenState extends State<DoctorApplicationScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Doctor application')),
-        body: ListView(padding: const EdgeInsets.all(22), children: [
-          Text('Professional verification',
-              style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 10),
-          const Text(
-              'Your application remains pending until an authorized administrator verifies your professional details. Screening cases stay unavailable until then.'),
-          const SizedBox(height: 20),
-          DoctorDetailsForm(
-              onSave: submit,
-              saving: saving,
-              error: error,
-              buttonLabel: 'Submit application'),
-        ]),
+        body: SafeArea(
+          child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+              children: [
+                Text('PROFESSIONAL ONBOARDING',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppColors.teal,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.5)),
+                const SizedBox(height: 8),
+                Text('Professional verification',
+                    style: Theme.of(context).textTheme.headlineMedium),
+                const SizedBox(height: 8),
+                const Text(
+                    'Tell us about your clinical practice. Your details will be reviewed before case access is available.'),
+                const SizedBox(height: 20),
+                const _DoctorNotice(
+                    icon: Icons.verified_user_outlined,
+                    text:
+                        'Your application stays pending until an authorized administrator verifies it. No patient cases are shared while pending.'),
+                const SizedBox(height: 26),
+                Text('Professional details',
+                    style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: DoctorDetailsForm(
+                        onSave: submit,
+                        saving: saving,
+                        error: error,
+                        buttonLabel: 'Submit application'),
+                  ),
+                ),
+              ]),
+        ),
       );
 }
 
@@ -121,31 +144,90 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
               return const Center(child: CircularProgressIndicator());
             final value = snapshot.data!;
             final state = value['verification_state'] as String? ?? 'pending';
-            return ListView(padding: const EdgeInsets.all(22), children: [
-              Text(value['display_name'] as String? ?? 'Doctor',
-                  style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 6),
-              Text(ClerkAuth.userOf(context)?.email ?? '',
-                  style: const TextStyle(color: AppColors.secondaryText)),
-              const SizedBox(height: 12),
-              Chip(label: Text('Verification: $state')),
-              const SizedBox(height: 12),
-              const Text(
-                  'Changing professional details requires a new verification. Your case access will pause until approval.'),
-              const SizedBox(height: 20),
-              if (state == 'pending' || state == 'verified')
-                DoctorDetailsForm(
-                    initial: value,
-                    onSave: save,
-                    saving: saving,
-                    error: error,
-                    buttonLabel: 'Save professional details')
-              else
-                const Text(
-                    'This account cannot edit its professional profile. Contact an administrator.'),
-            ]);
+            return ListView(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+                children: [
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Row(children: [
+                        const CircleAvatar(
+                          radius: 26,
+                          backgroundColor: AppColors.successSoft,
+                          child: Icon(Icons.medical_services_outlined,
+                              color: AppColors.teal),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(value['display_name'] as String? ?? 'Doctor',
+                                  style:
+                                      Theme.of(context).textTheme.titleLarge),
+                              const SizedBox(height: 3),
+                              Text(ClerkAuth.userOf(context)?.email ?? '',
+                                  style: const TextStyle(
+                                      color: AppColors.secondaryText,
+                                      fontSize: 12.5)),
+                            ],
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _DoctorNotice(
+                    icon: state == 'verified'
+                        ? Icons.verified_rounded
+                        : Icons.hourglass_top_rounded,
+                    text:
+                        'Verification: $state. Changing professional details requires a new review and pauses case access until approval.',
+                  ),
+                  const SizedBox(height: 26),
+                  Text('Professional details',
+                      style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 12),
+                  if (state == 'pending' || state == 'verified')
+                    Card(
+                        child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: DoctorDetailsForm(
+                          initial: value,
+                          onSave: save,
+                          saving: saving,
+                          error: error,
+                          buttonLabel: 'Save professional details'),
+                    ))
+                  else
+                    const Text(
+                        'This account cannot edit its professional profile. Contact an administrator.'),
+                ]);
           },
         ),
+      );
+}
+
+class _DoctorNotice extends StatelessWidget {
+  const _DoctorNotice({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.successSoft,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, color: AppColors.teal, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+              child: Text(text,
+                  style: const TextStyle(fontSize: 13, height: 1.4))),
+        ]),
       );
 }
 

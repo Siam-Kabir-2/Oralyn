@@ -17,6 +17,11 @@ class LoginScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _AuthScaffold(
+        eyebrow: role == 'doctor'
+            ? 'DOCTOR ACCESS'
+            : role == 'admin'
+                ? 'ADMIN ACCESS'
+                : 'PATIENT ACCESS',
         title: role == 'admin'
             ? 'Admin sign in'
             : role == 'doctor'
@@ -54,6 +59,7 @@ class RegisterScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _AuthScaffold(
+        eyebrow: role == 'doctor' ? 'DOCTOR APPLICATION' : 'JOIN ORALYN',
         title: role == 'doctor'
             ? 'Create a Doctor account'
             : 'Create your account',
@@ -81,43 +87,114 @@ class AuthChoiceScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(22, 18, 22, 28),
             children: [
               const OralynLogo(),
-              const SizedBox(height: 30),
+              const SizedBox(height: 26),
               Text('Welcome to Oralyn',
-                  style: Theme.of(context).textTheme.headlineMedium),
+                  style: Theme.of(context).textTheme.displaySmall),
               const SizedBox(height: 10),
-              const Text(
-                  'Choose how you use Oralyn. Your access is verified after sign in.'),
-              const SizedBox(height: 28),
-              FilledButton.icon(
-                onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
-                icon: const Icon(Icons.person_outline),
-                label: const Text('Continue as Patient'),
+              Text(
+                'Personal screening and professional review, in one secure place.',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyLarge
+                    ?.copyWith(color: AppColors.secondaryText),
+              ),
+              const SizedBox(height: 30),
+              Text('CHOOSE YOUR SPACE',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppColors.teal,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.5)),
+              const SizedBox(height: 12),
+              _RoleEntry(
+                icon: Icons.person_outline_rounded,
+                title: 'Continue as Patient',
+                description: 'Screen, save results, and request care.',
+                onTap: () => Navigator.pushNamed(context, AppRoutes.login),
               ),
               TextButton(
                 onPressed: () =>
                     Navigator.pushNamed(context, AppRoutes.register),
                 child: const Text('Register as Patient'),
               ),
-              const SizedBox(height: 18),
-              OutlinedButton.icon(
-                onPressed: () =>
+              const SizedBox(height: 10),
+              _RoleEntry(
+                icon: Icons.medical_services_outlined,
+                title: 'Continue as Doctor',
+                description: 'Review cases assigned to your verified account.',
+                onTap: () =>
                     Navigator.pushNamed(context, AppRoutes.doctorLogin),
-                icon: const Icon(Icons.medical_services_outlined),
-                label: const Text('Continue as Doctor'),
               ),
               TextButton(
                 onPressed: () =>
                     Navigator.pushNamed(context, AppRoutes.doctorRegister),
                 child: const Text('Apply as Doctor'),
               ),
-              const SizedBox(height: 36),
+              const SizedBox(height: 24),
+              const Divider(),
               Center(
-                  child: TextButton(
-                onPressed: () =>
-                    Navigator.pushNamed(context, AppRoutes.adminLogin),
-                child: const Text('Admin sign in'),
-              )),
+                child: TextButton.icon(
+                  onPressed: () =>
+                      Navigator.pushNamed(context, AppRoutes.adminLogin),
+                  icon: const Icon(Icons.admin_panel_settings_outlined),
+                  label: const Text('Admin sign in'),
+                ),
+              ),
             ],
+          ),
+        ),
+      );
+}
+
+class _RoleEntry extends StatelessWidget {
+  const _RoleEntry({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.divider),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                    color: AppColors.successSoft,
+                    borderRadius: BorderRadius.circular(15)),
+                child: Icon(icon, color: AppColors.teal, size: 26),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 3),
+                    Text(description,
+                        style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded,
+                  size: 16, color: AppColors.secondaryText),
+            ]),
           ),
         ),
       );
@@ -156,7 +233,7 @@ class ExpiredSessionScreen extends StatelessWidget {
               await ClerkAuth.of(context, listen: false).signOut();
               if (context.mounted) {
                 Navigator.pushNamedAndRemoveUntil(
-                    context, AppRoutes.login, (_) => false);
+                    context, AppRoutes.authChoice, (_) => false);
               }
             } catch (_) {
               if (context.mounted) {
@@ -174,12 +251,14 @@ class ExpiredSessionScreen extends StatelessWidget {
 
 class _AuthScaffold extends StatelessWidget {
   const _AuthScaffold({
+    this.eyebrow = 'ACCOUNT ACCESS',
     required this.title,
     required this.subtitle,
     required this.child,
     required this.footer,
   });
 
+  final String eyebrow;
   final String title;
   final String subtitle;
   final Widget child;
@@ -187,29 +266,62 @@ class _AuthScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          leading: Navigator.canPop(context) ? const BackButton() : null,
-        ),
+        appBar: AppBar(),
         body: SafeArea(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(22, 12, 22, 28),
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, 36),
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             children: [
-              const OralynLogo(),
-              const SizedBox(height: 28),
-              Text(title, style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyLarge
-                    ?.copyWith(color: AppColors.secondaryText),
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const OralynLogo(size: 48),
+                      const SizedBox(height: 28),
+                      Text(eyebrow,
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.copyWith(
+                                  color: AppColors.teal,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.5)),
+                      const SizedBox(height: 8),
+                      Text(title,
+                          style: Theme.of(context).textTheme.displaySmall),
+                      const SizedBox(height: 10),
+                      Text(subtitle,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyLarge
+                              ?.copyWith(color: AppColors.secondaryText)),
+                      const SizedBox(height: 26),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.fromLTRB(18, 20, 18, 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(color: AppColors.divider),
+                        ),
+                        child: child,
+                      ),
+                      const SizedBox(height: 16),
+                      Center(child: footer),
+                      const SizedBox(height: 16),
+                      Center(
+                        child: TextButton(
+                          onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                              context, AppRoutes.authChoice, (_) => false),
+                          child: const Text('Choose another account type'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              const SizedBox(height: 30),
-              child,
-              const SizedBox(height: 20),
-              footer,
             ],
           ),
         ),

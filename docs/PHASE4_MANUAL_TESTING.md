@@ -17,6 +17,14 @@ to the same project on 2026-11-14; its 13 assertions and the existing 26
 Phase 3C assertions both passed afterward. The current backend exposes the
 Doctor routes. The complete phone workflow remains for manual verification.
 
+The current app build lets a signed-in user browse the general Patient UI
+while the FastAPI role lookup is pending or unavailable. Use the connection
+banner's **Set up** action or **Profile → Screening server** to enter the
+current tunnel URL, then retry. Doctor cases remain unavailable until the
+server confirms a verified Doctor role. After saving a screening, the already
+open History tab should refresh without restarting the app. Sign-out should
+return to the Patient/Doctor/Admin choice screen.
+
 ### Live Phase 3C verification record
 
 - The transaction-wrapped migration completed with `Success. No rows returned`.

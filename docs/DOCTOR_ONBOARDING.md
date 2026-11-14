@@ -34,6 +34,15 @@ FastAPI verifies Clerk tokens. Supabase RPCs are callable with the server secret
 - The prerequisite checker passed all file, configuration and six remote Phase 3C schema checks. The current FastAPI process exposes the new Doctor routes; local and tunnel requests without authentication return 401 for `/doctors`. The server launcher now rejects an occupied port instead of reporting an older server as healthy.
 - Physical Android registration, login, approval, role restoration and full case flow: **not tested by this verification**. The user will perform the device checks. The application is not live-ready until those checks pass.
 
+### App navigation and interface refinement (2026-11-14)
+
+- Patient tabs now own their detail routes, keeping the bottom navigation visible through screening, history, care and settings pages. A root-level result exit and sign-out avoid nesting another app shell.
+- After a successful save, the mounted History and Home screens reload their saved-screening lists immediately. No new clinical data or prediction logic is introduced.
+- A slow or unavailable FastAPI role lookup now leaves the signed-in user in the general app with a connection notice and Screening server shortcut. Doctor case access still requires a successful server-verified role and `verified` state; offline browsing grants no Doctor privileges.
+- The Doctor workspace and Clerk-based role choice/sign-in/sign-up containers now use the existing Oralyn colors, typography, spacing and card style. Doctor case lists and counts still come from the authenticated API. Sign-out returns to the Patient/Doctor/Admin chooser.
+- The Clerk development instance already had application-wide MFA disabled. At the owner's request, Device Trust was disabled on 2026-11-14 after explicit confirmation. This removes new-device second-factor checks for password sign-ins and lowers protection against stolen passwords. Sign-up email verification remains enabled; no production Clerk instance was changed.
+- Flutter static analysis reported no issues and all 38 Flutter tests passed, including new mounted-History and nested-navigation checks. Android visual and end-to-end behavior still need manual verification with the newly built APK.
+
 ## Remaining integration and security work
 
 1. Implement a trusted Admin API and provisioning process. The present Admin landing is intentionally inert. Document who can approve/reject/suspend and audit each operation.

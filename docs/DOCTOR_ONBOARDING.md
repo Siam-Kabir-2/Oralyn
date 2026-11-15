@@ -43,6 +43,10 @@ FastAPI verifies Clerk tokens. Supabase RPCs are callable with the server secret
 - The Clerk development instance already had application-wide MFA disabled. At the owner's request, Device Trust was disabled on 2026-11-14 after explicit confirmation. This removes new-device second-factor checks for password sign-ins and lowers protection against stolen passwords. Sign-up email verification remains enabled; no production Clerk instance was changed.
 - Flutter static analysis reported no issues and all 38 Flutter tests passed, including new mounted-History and nested-navigation checks. Android visual and end-to-end behavior still need manual verification with the newly built APK.
 
+### Doctor role lookup correction (2026-11-15)
+
+The earlier offline fallback displayed the Patient shell while `GET /me` was loading or unavailable, even for a Doctor sign-in. A signed-in account whose role is unknown now sees a connection screen with retry, Screening server settings and an explicit option to browse general app screens. A Patient who chose Patient sign-in can still browse immediately. Neither fallback loads Doctor cases; the Doctor workspace opens only after `GET /me` confirms `application_role: doctor` and `verification_state: verified`. This also makes an expired Quick Tunnel visible instead of making a Doctor account appear to be a Patient. Flutter analysis found no issues and all 39 Flutter tests passed. The corrected APK still needs a physical Android check.
+
 ## Remaining integration and security work
 
 1. Implement a trusted Admin API and provisioning process. The present Admin landing is intentionally inert. Document who can approve/reject/suspend and audit each operation.

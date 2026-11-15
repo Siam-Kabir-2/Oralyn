@@ -8,7 +8,7 @@ import 'package:oralyn/services/doctor_case_service.dart';
 import 'package:oralyn/views/screens/doctors/doctor_workspace.dart';
 
 void main() {
-  testWidgets('app remains navigable while role lookup is pending',
+  testWidgets('Patient can browse while role lookup is pending',
       (tester) async {
     final roleResponse = Completer<http.Response>();
     final service = DoctorCaseService(
@@ -20,7 +20,7 @@ void main() {
       tokenProvider: () async => 'synthetic-session',
     );
     await tester.pumpWidget(MaterialApp(
-      home: RoleHomeScreen(caseService: service),
+      home: RoleHomeScreen(caseService: service, preferredRole: 'patient'),
     ));
     await tester.pump();
     expect(find.textContaining('Connecting to the server'), findsOneWidget);
@@ -88,7 +88,7 @@ void main() {
     service.close();
   });
 
-  testWidgets('role loading error allows browsing before server setup',
+  testWidgets('Doctor role error shows setup without Patient shell',
       (tester) async {
     final service = DoctorCaseService(
       client: MockClient((_) async => http.Response('{}', 503)),
@@ -96,12 +96,29 @@ void main() {
       tokenProvider: () async => 'synthetic-session',
     );
     await tester.pumpWidget(MaterialApp(
-      home: RoleHomeScreen(caseService: service),
+      home: RoleHomeScreen(caseService: service, preferredRole: 'doctor'),
     ));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Server unavailable.'), findsOneWidget);
-    expect(find.text('Set up'), findsOneWidget);
-    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Doctor workspace'), findsOneWidget);
+    expect(find.text('Connect to continue'), findsOneWidget);
+    expect(find.text('Screening server settings'), findsOneWidget);
+    expect(find.text('Home'), findsNothing);
+    service.close();
+  });
+
+  testWidgets('unknown role does not appear as Patient when offline',
+      (tester) async {
+    final service = DoctorCaseService(
+      client: MockClient((_) async => http.Response('{}', 503)),
+      predictionEndpoint: Uri.parse('https://example.test/predict'),
+      tokenProvider: () async => 'synthetic-session',
+    );
+    await tester
+        .pumpWidget(MaterialApp(home: RoleHomeScreen(caseService: service)));
+    await tester.pumpAndSettle();
+    expect(find.text('Your workspace'), findsOneWidget);
+    expect(find.text('Browse general app'), findsOneWidget);
+    expect(find.text('Home'), findsNothing);
     service.close();
   });
 

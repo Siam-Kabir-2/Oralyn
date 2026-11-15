@@ -182,6 +182,9 @@ class _AuthRoute extends StatelessWidget {
         if (routeName == AppRoutes.adminLogin) {
           return const RoleHomeScreen(preferredRole: 'admin');
         }
+        if (routeName == AppRoutes.login || routeName == AppRoutes.register) {
+          return const RoleHomeScreen(preferredRole: 'patient');
+        }
         return isAuthRoute ? const RoleHomeScreen() : child;
       },
       signedOutBuilder: (_, __) =>

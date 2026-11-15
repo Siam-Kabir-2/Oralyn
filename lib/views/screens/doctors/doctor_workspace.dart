@@ -31,12 +31,20 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
         future: profile,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
-            return MainShell(
-              connectionUnavailable: true,
-              connectionPending: !snapshot.hasError,
-              onRetryConnection: () => setState(() {
-                profile = service.profile();
-              }),
+            final retry = () => setState(() {
+                  profile = service.profile();
+                });
+            if (widget.preferredRole == 'patient') {
+              return MainShell(
+                connectionUnavailable: true,
+                connectionPending: !snapshot.hasError,
+                onRetryConnection: retry,
+              );
+            }
+            return _RoleConnectionScreen(
+              preferredRole: widget.preferredRole,
+              pending: !snapshot.hasError,
+              retry: retry,
             );
           }
           final value = snapshot.data!;
@@ -118,6 +126,103 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
           return const MainShell();
         },
       );
+}
+
+class _RoleConnectionScreen extends StatelessWidget {
+  const _RoleConnectionScreen({
+    required this.preferredRole,
+    required this.pending,
+    required this.retry,
+  });
+
+  final String? preferredRole;
+  final bool pending;
+  final VoidCallback retry;
+
+  @override
+  Widget build(BuildContext context) {
+    final workspace = preferredRole == 'doctor'
+        ? 'Doctor workspace'
+        : preferredRole == 'admin'
+            ? 'Admin access'
+            : 'Your workspace';
+    return Scaffold(
+      appBar: AppBar(title: Text(workspace)),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.all(24),
+              children: [
+                CircleAvatar(
+                  radius: 32,
+                  backgroundColor: AppColors.successSoft,
+                  child: Icon(
+                    preferredRole == 'doctor'
+                        ? Icons.medical_services_outlined
+                        : Icons.shield_outlined,
+                    color: AppColors.teal,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  pending ? 'Checking account access' : 'Connect to continue',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  pending
+                      ? 'Oralyn is checking your role with the screening server.'
+                      : 'The screening server could not confirm your account role. Check its URL, then retry. Doctor cases remain private until your verified role is confirmed.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppColors.secondaryText),
+                ),
+                const SizedBox(height: 28),
+                if (pending)
+                  const Center(child: CircularProgressIndicator())
+                else ...[
+                  FilledButton.icon(
+                    onPressed: retry,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Retry connection'),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      await Navigator.pushNamed(context, AppRoutes.apiSettings);
+                      if (context.mounted) retry();
+                    },
+                    icon: const Icon(Icons.settings_ethernet),
+                    label: const Text('Screening server settings'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => MainShell(
+                          connectionUnavailable: true,
+                          onRetryConnection: () {
+                            Navigator.of(context).pop();
+                            retry();
+                          },
+                        ),
+                      ),
+                    ),
+                    child: const Text('Browse general app'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class DoctorWorkspace extends StatefulWidget {

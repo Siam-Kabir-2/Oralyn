@@ -130,10 +130,23 @@ class SupabaseRepository:
         response = await self._request(
             "GET", f"{self.url}/rest/v1/doctor_profiles",
             headers=self._admin_headers(),
-            params={"select": "display_name,specialization,qualification,workplace",
+            params={"select": "directory_id,display_name,specialization,qualification,workplace",
                     "verification_state": "eq.verified", "order": "display_name.asc",
                     "limit": "100"},
         )
+        if response.status_code == 400 and response.json().get("code") in {
+            "42703", "PGRST204",
+        }:
+            # Existing development schema remains browsable until the
+            # preference migration is applied. No selectable identifier is
+            # fabricated for those rows.
+            response = await self._request(
+                "GET", f"{self.url}/rest/v1/doctor_profiles",
+                headers=self._admin_headers(),
+                params={"select": "display_name,specialization,qualification,workplace",
+                        "verification_state": "eq.verified", "order": "display_name.asc",
+                        "limit": "100"},
+            )
         if response.status_code != 200:
             raise PersistenceUnavailable("Could not load verified Doctors")
         return response.json()
@@ -153,30 +166,66 @@ class SupabaseRepository:
         if response.status_code not in (200, 204):
             raise PersistenceUnavailable("Could not update Doctor profile")
 
-    async def request_review(self, token: str, screening_id: str) -> dict[str, str]:
+    async def request_review(self, token: str, screening_id: str,
+                             preferred_doctor_directory_id: str | None = None
+                             ) -> dict[str, str]:
+        function = ("request_review_with_preference" if preferred_doctor_directory_id
+                    else "request_screening_review")
+        payload = {"p_screening_id": screening_id}
+        if preferred_doctor_directory_id:
+            payload["p_doctor_directory_id"] = preferred_doctor_directory_id
         response = await self._request(
-            "POST", f"{self.url}/rest/v1/rpc/request_screening_review",
+            "POST", f"{self.url}/rest/v1/rpc/{function}",
             headers={**self._user_headers(token), "content-type": "application/json"},
-            json={"p_screening_id": screening_id},
+            json=payload,
         )
         if response.status_code == 403:
             raise PermissionError("Screening is not eligible")
+        if response.status_code == 409:
+            raise PersistenceConflict("Review request already exists")
         if response.status_code not in (200, 201):
             raise PersistenceUnavailable("Could not request review")
         return response.json()[0]
 
     async def list_review_requests(self, token: str) -> list[dict[str, Any]]:
+        params = {
+            "select": "id,screening_id,status,consent_at,created_at,preferred_doctor_directory_id",
+            "order": "created_at.desc", "limit": "100",
+        }
         response = await self._request(
             "GET", f"{self.url}/rest/v1/review_requests",
             headers=self._user_headers(token),
-            params={
-                "select": "id,screening_id,status,consent_at,created_at",
-                "order": "created_at.desc", "limit": "100",
-            },
+            params=params,
         )
+        if response.status_code == 400 and response.json().get("code") in {
+            "42703", "PGRST204",
+        }:
+            params["select"] = "id,screening_id,status,consent_at,created_at"
+            response = await self._request(
+                "GET", f"{self.url}/rest/v1/review_requests",
+                headers=self._user_headers(token), params=params,
+            )
         if response.status_code != 200:
             raise PersistenceUnavailable("Could not load review requests")
-        return response.json()
+        rows = response.json()
+        doctor_ids = {row.get("preferred_doctor_directory_id") for row in rows}
+        doctor_ids.discard(None)
+        doctors = {}
+        if doctor_ids:
+            profiles = await self._request(
+                "GET", f"{self.url}/rest/v1/doctor_profiles",
+                headers=self._admin_headers(),
+                params={"select": "directory_id,display_name",
+                        "directory_id": f"in.({','.join(sorted(doctor_ids))})"},
+            )
+            if profiles.status_code != 200:
+                raise PersistenceUnavailable("Could not load preferred Doctors")
+            doctors = {item["directory_id"]: item for item in profiles.json()}
+        for row in rows:
+            doctor = doctors.get(row.get("preferred_doctor_directory_id"))
+            if doctor:
+                row["preferred_doctor_name"] = doctor["display_name"]
+        return rows
 
     async def my_doctor_feedback(self, token: str) -> list[dict[str, Any]]:
         response = await self._request(

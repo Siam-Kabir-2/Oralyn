@@ -1,5 +1,6 @@
 """Doctor onboarding is scoped to the verified session subject."""
 
+import json
 import unittest
 from pathlib import Path
 
@@ -113,7 +114,7 @@ class DoctorOnboardingTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(request.url.params["verification_state"],
                              "eq.verified")
             self.assertEqual(request.url.params["select"],
-                             "display_name,specialization,qualification,workplace")
+                             "directory_id,display_name,specialization,qualification,workplace")
             self.assertNotIn("authorization", request.headers)
             return httpx.Response(200, json=[{"display_name": "Test Doctor"}])
 
@@ -125,3 +126,98 @@ class DoctorOnboardingTests(unittest.IsolatedAsyncioTestCase):
             repository = SupabaseRepository(settings, client=client)
             self.assertEqual((await repository.verified_doctors())[0]
                              ["display_name"], "Test Doctor")
+
+    async def test_legacy_directory_remains_browsable_without_fake_identifier(self):
+        calls = 0
+        def handler(request):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                self.assertIn("directory_id", request.url.params["select"])
+                return httpx.Response(400, json={"code": "42703"})
+            self.assertNotIn("directory_id", request.url.params["select"])
+            return httpx.Response(200, json=[{"display_name": "Legacy Doctor"}])
+
+        settings = Settings(model_dir=Path("unused"),
+            supabase_url="https://example.supabase.co",
+            supabase_publishable_key="sb_publishable_test",
+            supabase_secret_key="sb_secret_test")
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            repository = SupabaseRepository(settings, client=client)
+            result = (await repository.verified_doctors())[0]
+            self.assertEqual(result["display_name"], "Legacy Doctor")
+            self.assertNotIn("directory_id", result)
+
+    async def test_preferred_review_uses_authorized_rpc_not_assignment(self):
+        directory_id = "40000000-0000-4000-8000-000000000001"
+        def handler(request):
+            self.assertEqual(request.url.path,
+                             "/rest/v1/rpc/request_review_with_preference")
+            self.assertEqual(request.headers["authorization"], "Bearer synthetic")
+            self.assertEqual(json.loads(request.read()), {
+                "p_screening_id": "screening-test",
+                "p_doctor_directory_id": directory_id,
+            })
+            return httpx.Response(200, json=[{
+                "id": "request-test", "status": "pending_assignment",
+                "preferred_doctor_directory_id": directory_id,
+            }])
+
+        settings = Settings(model_dir=Path("unused"),
+            supabase_url="https://example.supabase.co",
+            supabase_publishable_key="sb_publishable_test",
+            supabase_secret_key="sb_secret_test")
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            repository = SupabaseRepository(settings, client=client)
+            result = await repository.request_review(
+                "synthetic", "screening-test", directory_id)
+            self.assertEqual(result["status"], "pending_assignment")
+
+    async def test_owned_request_preference_is_enriched_without_internal_id(self):
+        directory_id = "40000000-0000-4000-8000-000000000001"
+        def handler(request):
+            if request.url.path.endswith("/review_requests"):
+                self.assertEqual(request.headers["authorization"], "Bearer synthetic")
+                return httpx.Response(200, json=[{
+                    "id": "request-test", "screening_id": "screening-test",
+                    "status": "pending_assignment",
+                    "preferred_doctor_directory_id": directory_id,
+                }])
+            self.assertEqual(request.url.path, "/rest/v1/doctor_profiles")
+            return httpx.Response(200, json=[{
+                "directory_id": directory_id,
+                "display_name": "Synthetic Doctor",
+            }])
+
+        settings = Settings(model_dir=Path("unused"),
+            supabase_url="https://example.supabase.co",
+            supabase_publishable_key="sb_publishable_test",
+            supabase_secret_key="sb_secret_test")
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            repository = SupabaseRepository(settings, client=client)
+            result = (await repository.list_review_requests("synthetic"))[0]
+            self.assertEqual(result["preferred_doctor_name"], "Synthetic Doctor")
+            self.assertEqual(result["preferred_doctor_directory_id"], directory_id)
+            self.assertNotIn("clerk_user_id", result)
+
+    async def test_legacy_review_requests_remain_readable(self):
+        calls = 0
+        def handler(request):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return httpx.Response(400, json={"code": "42703"})
+            self.assertEqual(request.url.path, "/rest/v1/review_requests")
+            self.assertNotIn("preferred_doctor", request.url.params["select"])
+            return httpx.Response(200, json=[{
+                "id": "request-test", "status": "pending_assignment",
+            }])
+
+        settings = Settings(model_dir=Path("unused"),
+            supabase_url="https://example.supabase.co",
+            supabase_publishable_key="sb_publishable_test",
+            supabase_secret_key="sb_secret_test")
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            repository = SupabaseRepository(settings, client=client)
+            result = (await repository.list_review_requests("synthetic"))[0]
+            self.assertNotIn("preferred_doctor_directory_id", result)

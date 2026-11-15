@@ -14,6 +14,7 @@ router = APIRouter(tags=["case-management"])
 
 class ReviewConsent(BaseModel):
     consent_to_share: bool
+    preferred_doctor_directory_id: UUID | None = None
 
 
 class DoctorReviewInput(BaseModel):
@@ -68,11 +69,15 @@ async def request_doctor_review(
         if profile["application_role"] != "patient":
             raise HTTPException(403, "Patient account required")
         review = await repository.request_review(
-            request.state.session_token, str(screening_id)
+            request.state.session_token, str(screening_id),
+            str(consent.preferred_doctor_directory_id)
+            if consent.preferred_doctor_directory_id else None,
         )
         return review
     except PermissionError:
         raise HTTPException(404, "Eligible screening not found") from None
+    except PersistenceConflict:
+        raise HTTPException(409, "Review request already exists") from None
     except PersistenceUnavailable:
         raise _unavailable() from None
     finally:

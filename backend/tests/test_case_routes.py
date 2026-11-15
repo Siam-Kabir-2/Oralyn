@@ -38,9 +38,11 @@ class CaseRepository:
                 "doctor_profiles": {"verification_state":
                                     "suspended" if token == "suspended" else self.state}}
 
-    async def request_review(self, token, screening_id):
+    async def request_review(self, token, screening_id, preferred_doctor_directory_id=None):
         if token != "patient" or screening_id != self.owned_screening:
             raise PermissionError()
+        if preferred_doctor_directory_id is not None:
+            self.preferred_doctor_directory_id = preferred_doctor_directory_id
         return self.requests.setdefault(
             screening_id, {"id": str(uuid4()), "status": "pending_assignment"}
         )
@@ -118,6 +120,20 @@ class CaseRoutesTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.call("GET", "/feedback", "doctor")).status_code, 403)
         self.assertEqual((await self.call("POST", path, token="doctor",
                                      json={"consent_to_share": True})).status_code, 403)
+
+    async def test_preferred_doctor_is_passed_as_public_uuid_only(self):
+        directory_id = str(uuid4())
+        path = f"/screenings/{self.repo.owned_screening}/review-request"
+        response = await self.call("POST", path, json={
+            "consent_to_share": True,
+            "preferred_doctor_directory_id": directory_id,
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.repo.preferred_doctor_directory_id, directory_id)
+        self.assertEqual((await self.call("POST", path, json={
+            "consent_to_share": True,
+            "preferred_doctor_directory_id": "user_not_a_uuid",
+        })).status_code, 422)
 
     async def test_doctor_verification_is_database_backed(self):
         assignment_id = str(uuid4())

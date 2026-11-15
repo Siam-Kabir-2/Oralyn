@@ -64,9 +64,12 @@ abstract final class AppRoutes {
       doctorMessages => const DoctorMessagesScreen(),
       adminLogin => const LoginScreen(role: 'admin'),
       forgotPassword => const ForgotPasswordScreen(),
-      home => const RoleHomeScreen(),
+      home => RoleHomeScreen(
+          preferredRole: settings.arguments is String
+              ? settings.arguments! as String
+              : null),
       preparation => const ScreeningPreparationScreen(),
-      capture => const CaptureScreen(),
+      capture => CaptureScreen(saveToHistory: settings.arguments == true),
       preview => ImagePreviewScreen(
           photo: settings.arguments is ScreeningPhoto
               ? settings.arguments! as ScreeningPhoto
@@ -176,21 +179,51 @@ class _AuthRoute extends StatelessWidget {
             routeName == AppRoutes.doctorApply) {
           return const DoctorApplicationScreen();
         }
-        if (routeName == AppRoutes.doctorLogin) {
-          return const RoleHomeScreen(preferredRole: 'doctor');
+        if (isAuthRoute) {
+          return _SignedInHomeRedirect(
+            preferredRole: switch (routeName) {
+              AppRoutes.doctorLogin => 'doctor',
+              AppRoutes.adminLogin => 'admin',
+              AppRoutes.login || AppRoutes.register => 'patient',
+              _ => null,
+            },
+          );
         }
-        if (routeName == AppRoutes.adminLogin) {
-          return const RoleHomeScreen(preferredRole: 'admin');
-        }
-        if (routeName == AppRoutes.login || routeName == AppRoutes.register) {
-          return const RoleHomeScreen(preferredRole: 'patient');
-        }
-        return isAuthRoute ? const RoleHomeScreen() : child;
+        return child;
       },
       signedOutBuilder: (_, __) =>
           isAuthRoute ? child : const AuthChoiceScreen(),
     );
   }
+}
+
+class _SignedInHomeRedirect extends StatefulWidget {
+  const _SignedInHomeRedirect({this.preferredRole});
+  final String? preferredRole;
+
+  @override
+  State<_SignedInHomeRedirect> createState() => _SignedInHomeRedirectState();
+}
+
+class _SignedInHomeRedirectState extends State<_SignedInHomeRedirect> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pushNamedAndRemoveUntil(
+          AppRoutes.home,
+          (_) => false,
+          arguments: widget.preferredRole,
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
 }
 
 class _NotFoundScreen extends StatelessWidget {

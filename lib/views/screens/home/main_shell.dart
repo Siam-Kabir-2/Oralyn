@@ -30,6 +30,13 @@ class _MainShellState extends State<MainShell> {
   late int index = widget.initialIndex.clamp(0, 3);
   final _navigatorKeys = List.generate(4, (_) => GlobalKey<NavigatorState>());
   final _tabNavigators = List<Widget?>.filled(4, null);
+  late final _routeObservers = List.generate(
+      4,
+      (_) => _TabRouteObserver(() {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() {});
+            });
+          }));
   static const pages = [
     HomeScreen(),
     HistoryScreen(),
@@ -56,6 +63,7 @@ class _MainShellState extends State<MainShell> {
 
   Widget _tabNavigator(int tabIndex) => Navigator(
         key: _navigatorKeys[tabIndex],
+        observers: [_routeObservers[tabIndex]],
         onGenerateRoute: (settings) =>
             settings.name == Navigator.defaultRouteName
                 ? MaterialPageRoute<void>(
@@ -68,142 +76,168 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBody: false,
-      body: Column(children: [
-        if (widget.connectionUnavailable)
-          Material(
-            color: AppColors.warningSoft,
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Row(children: [
-                  widget.connectionPending
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.cloud_off_outlined,
-                          color: AppColors.warning, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      widget.connectionPending
-                          ? 'Connecting to the server. You can browse the app now.'
-                          : 'Server unavailable. Browse the app, then reconnect for private records and screening.',
-                      style: const TextStyle(fontSize: 12.5),
+    final activeNavigator = _navigatorKeys[index].currentState;
+    final hasDetail = activeNavigator?.canPop() ?? false;
+    return PopScope(
+      canPop: !hasDetail && index == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (hasDetail) {
+          activeNavigator?.pop();
+        } else if (index != 0) {
+          select(0);
+        }
+      },
+      child: Scaffold(
+        extendBody: false,
+        body: Column(children: [
+          if (widget.connectionUnavailable)
+            Material(
+              color: AppColors.warningSoft,
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Row(children: [
+                    widget.connectionPending
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.cloud_off_outlined,
+                            color: AppColors.warning, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        widget.connectionPending
+                            ? 'Connecting to the server. You can browse the app now.'
+                            : 'Server unavailable. Browse the app, then reconnect for private records and screening.',
+                        style: const TextStyle(fontSize: 12.5),
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    tooltip: 'Retry connection',
-                    onPressed: widget.connectionPending
-                        ? null
-                        : widget.onRetryConnection,
-                    icon: const Icon(Icons.refresh_rounded),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      await _navigatorKeys[index]
-                          .currentState
-                          ?.pushNamed(AppRoutes.apiSettings);
-                      widget.onRetryConnection?.call();
-                    },
-                    child: const Text('Set up'),
-                  ),
-                ]),
+                    IconButton(
+                      tooltip: 'Retry connection',
+                      onPressed: widget.connectionPending
+                          ? null
+                          : widget.onRetryConnection,
+                      icon: const Icon(Icons.refresh_rounded),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        await _navigatorKeys[index]
+                            .currentState
+                            ?.pushNamed(AppRoutes.apiSettings);
+                        widget.onRetryConnection?.call();
+                      },
+                      child: const Text('Set up'),
+                    ),
+                  ]),
+                ),
               ),
             ),
+          Expanded(
+            child: IndexedStack(
+              index: index,
+              children: List.generate(4,
+                  (tabIndex) => _tabNavigators[tabIndex] ?? const SizedBox()),
+            ),
           ),
-        Expanded(
-          child: IndexedStack(
-            index: index,
-            children: List.generate(
-                4, (tabIndex) => _tabNavigators[tabIndex] ?? const SizedBox()),
-          ),
-        ),
-      ]),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        child: SizedBox(
-          height: 66,
-          child: Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .94),
-                    borderRadius: BorderRadius.circular(27),
-                    border: Border.all(color: Colors.white),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.ink.withValues(alpha: .1),
-                        blurRadius: 28,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      _NavItem(
-                        icon: Icons.home_outlined,
-                        selectedIcon: Icons.home_rounded,
-                        label: 'Home',
-                        selected: index == 0,
-                        onTap: () => select(0),
-                      ),
-                      _NavItem(
-                        icon: Icons.history_outlined,
-                        selectedIcon: Icons.history_rounded,
-                        label: 'History',
-                        selected: index == 1,
-                        onTap: () => select(1),
-                      ),
-                      _NavItem(
-                        icon: Icons.medical_services_outlined,
-                        selectedIcon: Icons.medical_services_rounded,
-                        label: 'Care',
-                        selected: index == 2,
-                        onTap: () => select(2),
-                      ),
-                      _NavItem(
-                        icon: Icons.person_outline_rounded,
-                        selectedIcon: Icons.person_rounded,
-                        label: 'Profile',
-                        selected: index == 3,
-                        onTap: () => select(3),
-                      ),
-                    ],
+        ]),
+        bottomNavigationBar: SafeArea(
+          minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: SizedBox(
+            height: 66,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: .94),
+                      borderRadius: BorderRadius.circular(27),
+                      border: Border.all(color: Colors.white),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.ink.withValues(alpha: .1),
+                          blurRadius: 28,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        _NavItem(
+                          icon: Icons.home_outlined,
+                          selectedIcon: Icons.home_rounded,
+                          label: 'Home',
+                          selected: index == 0,
+                          onTap: () => select(0),
+                        ),
+                        _NavItem(
+                          icon: Icons.history_outlined,
+                          selectedIcon: Icons.history_rounded,
+                          label: 'History',
+                          selected: index == 1,
+                          onTap: () => select(1),
+                        ),
+                        _NavItem(
+                          icon: Icons.medical_services_outlined,
+                          selectedIcon: Icons.medical_services_rounded,
+                          label: 'Care',
+                          selected: index == 2,
+                          onTap: () => select(2),
+                        ),
+                        _NavItem(
+                          icon: Icons.person_outline_rounded,
+                          selectedIcon: Icons.person_rounded,
+                          label: 'Profile',
+                          selected: index == 3,
+                          onTap: () => select(3),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Material(
-                color: AppColors.coral,
-                shape: const CircleBorder(),
-                elevation: 5,
-                shadowColor: AppColors.coral,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: () => _navigatorKeys[index]
-                      .currentState
-                      ?.pushNamed(AppRoutes.preparation),
-                  child: const SizedBox(
-                    width: 62,
-                    height: 62,
-                    child:
-                        Icon(Icons.add_rounded, color: Colors.white, size: 29),
+                const SizedBox(width: 10),
+                Material(
+                  color: AppColors.coral,
+                  shape: const CircleBorder(),
+                  elevation: 5,
+                  shadowColor: AppColors.coral,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () => _navigatorKeys[index]
+                        .currentState
+                        ?.pushNamed(AppRoutes.preparation),
+                    child: const SizedBox(
+                      width: 62,
+                      height: 62,
+                      child: Icon(Icons.add_rounded,
+                          color: Colors.white, size: 29),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+class _TabRouteObserver extends NavigatorObserver {
+  _TabRouteObserver(this.onChanged);
+  final VoidCallback onChanged;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      onChanged();
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      onChanged();
 }
 
 class _NavItem extends StatelessWidget {

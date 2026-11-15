@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'dart:math';
+
+import 'package:clerk_flutter/clerk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -5,12 +9,24 @@ import 'package:image_picker/image_picker.dart';
 import '../../../controllers/screening_controller.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../models/screening_result.dart';
 import '../../../models/screening_session.dart';
 import '../../../services/screening_api_service.dart';
+import '../../../services/screening_history_service.dart';
+import '../../../services/screening_history_updates.dart';
 import '../../widgets/common/app_components.dart';
 
-class ScreeningPreparationScreen extends StatelessWidget {
+class ScreeningPreparationScreen extends StatefulWidget {
   const ScreeningPreparationScreen({super.key});
+
+  @override
+  State<ScreeningPreparationScreen> createState() =>
+      _ScreeningPreparationScreenState();
+}
+
+class _ScreeningPreparationScreenState
+    extends State<ScreeningPreparationScreen> {
+  bool saveToHistory = false;
 
   static const _instructions = [
     (
@@ -72,14 +88,22 @@ class ScreeningPreparationScreen extends StatelessWidget {
                       ),
                     ),
                 const _PrivacyNote(),
+                const SizedBox(height: 12),
+                SwitchListTile.adaptive(
+                  value: saveToHistory,
+                  onChanged: (value) => setState(() => saveToHistory = value),
+                  title: const Text('Save this screening privately'),
+                  subtitle: const Text(
+                      'When on, the image and AI result are stored in your private History after analysis. You can leave this off for an unsaved screening.'),
+                ),
               ],
             )),
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 8, 22, 22),
               child: PrimaryButton(
                 label: 'Open Camera',
-                onPressed: () =>
-                    Navigator.pushNamed(context, AppRoutes.capture),
+                onPressed: () => Navigator.pushNamed(context, AppRoutes.capture,
+                    arguments: saveToHistory),
                 icon: Icons.camera_alt_outlined,
               ),
             ),
@@ -189,14 +213,15 @@ class _PrivacyNote extends StatelessWidget {
           SizedBox(width: 10),
           Expanded(
               child: Text(
-                  'Privacy first: your selected photo is sent only to the configured screening service when you start analysis.',
+                  'Your photo is sent to the configured screening service for analysis. If you choose private saving, the image and result are stored in your account History.',
                   style: TextStyle(fontSize: 13.5, height: 1.4))),
         ]),
       );
 }
 
 class CaptureScreen extends StatefulWidget {
-  const CaptureScreen({super.key});
+  const CaptureScreen({super.key, this.saveToHistory = false});
+  final bool saveToHistory;
   @override
   State<CaptureScreen> createState() => _CaptureScreenState();
 }
@@ -287,6 +312,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
       name: file.name,
       fromCamera: fromCamera,
       qualityWarning: bytes.lengthInBytes < 45000,
+      saveToHistory: widget.saveToHistory,
     );
     await Navigator.pushNamed(context, AppRoutes.preview, arguments: photo);
   }
@@ -717,15 +743,27 @@ class _QualityItem extends StatelessWidget {
 }
 
 class AnalysisScreen extends StatefulWidget {
-  const AnalysisScreen({super.key, this.photo});
+  const AnalysisScreen(
+      {super.key,
+      this.photo,
+      this.screeningController,
+      this.historyRepository,
+      this.ownerIdProvider});
   final ScreeningPhoto? photo;
+  final ScreeningController? screeningController;
+  final ScreeningHistoryRepository? historyRepository;
+  final String? Function(BuildContext)? ownerIdProvider;
   @override
   State<AnalysisScreen> createState() => _AnalysisScreenState();
 }
 
 class _AnalysisScreenState extends State<AnalysisScreen>
     with SingleTickerProviderStateMixin {
-  final controller = ScreeningController();
+  late final controller = widget.screeningController ?? ScreeningController();
+  late final historyRepository =
+      widget.historyRepository ?? ScreeningHistoryApiRepository();
+  late final String idempotencyKey =
+      'mobile_${base64UrlEncode(List<int>.generate(18, (_) => Random.secure().nextInt(256))).replaceAll('=', '')}';
   late final AnimationController pulse = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 1200))
     ..repeat(reverse: true);
@@ -750,6 +788,8 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     }
 
     final attempt = ++_attempt;
+    final ownerId =
+        widget.ownerIdProvider?.call(context) ?? ClerkAuth.userOf(context)?.id;
     setState(() {
       _submitting = true;
       _errorMessage = null;
@@ -768,8 +808,43 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     try {
       final result = await controller.analyze(photo);
       if (!mounted || attempt != _attempt) return;
+      String? savedScreeningId;
+      ScreeningResult? savedRecord;
+      String? saveError;
+      if (photo.saveToHistory) {
+        setState(() => stage = 3);
+        final currentOwner = widget.ownerIdProvider?.call(context) ??
+            ClerkAuth.userOf(context)?.id;
+        if (ownerId == null || currentOwner != ownerId) {
+          saveError = 'Your account changed. This result was not saved.';
+        } else {
+          try {
+            final stored = await historyRepository.save(
+              photo,
+              idempotencyKey: idempotencyKey,
+            );
+            savedScreeningId = stored.id;
+            savedRecord = stored;
+            ScreeningHistoryUpdates.instance.saved();
+          } on ScreeningHistoryException catch (error) {
+            saveError = error.message;
+          } catch (_) {
+            saveError =
+                'Could not save this result. Retry from the result screen.';
+          }
+        }
+      }
+      if (!mounted || attempt != _attempt) return;
       await Navigator.pushReplacementNamed(context, AppRoutes.result,
-          arguments: ScreeningOutcome(result: result, photo: photo));
+          arguments: ScreeningOutcome(
+            result: result,
+            photo: photo,
+            savedScreeningId: savedScreeningId,
+            savedRecord: savedRecord,
+            saveError: saveError,
+            idempotencyKey: idempotencyKey,
+            ownerId: ownerId,
+          ));
     } on PredictionException catch (error) {
       if (mounted && attempt == _attempt) {
         setState(() => _errorMessage = error.userMessage);
@@ -797,16 +872,18 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   @override
   void dispose() {
     pulse.dispose();
-    controller.dispose();
+    if (widget.screeningController == null) controller.dispose();
+    if (widget.historyRepository == null) historyRepository.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    const labels = [
+    final labels = [
       'Sending your photo securely',
       'Running the two-stage review',
-      'Preparing careful guidance'
+      'Preparing careful guidance',
+      if (widget.photo?.saveToHistory == true) 'Saving privately to History',
     ];
     return PopScope(
         canPop: _errorMessage != null,

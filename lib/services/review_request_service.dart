@@ -8,10 +8,16 @@ import 'clerk_session_provider.dart';
 
 class ReviewRequestStatus {
   const ReviewRequestStatus(
-      {required this.id, required this.screeningId, required this.status});
+      {required this.id,
+      required this.screeningId,
+      required this.status,
+      this.preferredDoctorDirectoryId,
+      this.preferredDoctorName});
   final String id;
   final String screeningId;
   final String status;
+  final String? preferredDoctorDirectoryId;
+  final String? preferredDoctorName;
 
   factory ReviewRequestStatus.fromJson(Map<String, dynamic> json) {
     final id = json['id'];
@@ -24,6 +30,9 @@ class ReviewRequestStatus {
       id: id,
       screeningId: screeningId is String ? screeningId : '',
       status: status,
+      preferredDoctorDirectoryId:
+          json['preferred_doctor_directory_id'] as String?,
+      preferredDoctorName: json['preferred_doctor_name'] as String?,
     );
   }
 }
@@ -117,7 +126,8 @@ class ReviewRequestService {
     }
   }
 
-  Future<ReviewRequestStatus> request(String screeningId) async {
+  Future<ReviewRequestStatus> request(String screeningId,
+      {String? preferredDoctorDirectoryId}) async {
     try {
       final context = await _context();
       final response = await _client
@@ -127,7 +137,11 @@ class ReviewRequestService {
               'authorization': 'Bearer ${context.token}',
               'content-type': 'application/json',
             },
-            body: jsonEncode({'consent_to_share': true}),
+            body: jsonEncode({
+              'consent_to_share': true,
+              if (preferredDoctorDirectoryId != null)
+                'preferred_doctor_directory_id': preferredDoctorDirectoryId,
+            }),
           )
           .timeout(const Duration(seconds: 20));
       _check(response);
@@ -149,7 +163,9 @@ class ReviewRequestService {
     if (response.statusCode >= 200 && response.statusCode < 300) return;
     final message = switch (response.statusCode) {
       401 || 403 => 'Your account is not authorized. Sign in again.',
-      404 => 'This screening is not eligible for review.',
+      404 =>
+        'This screening or selected Doctor is no longer eligible. Refresh and try again.',
+      409 => 'A review request already exists for this screening.',
       _ => 'Review service is temporarily unavailable. Try again.',
     };
     throw ReviewRequestException(message);

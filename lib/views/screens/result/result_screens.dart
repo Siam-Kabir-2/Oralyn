@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:clerk_flutter/clerk_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/routes/app_routes.dart';
@@ -29,9 +30,12 @@ class ResultScreen extends StatefulWidget {
 class _ResultScreenState extends State<ResultScreen> {
   late final ScreeningHistoryRepository historyRepository =
       widget.historyRepository ?? ScreeningHistoryApiRepository();
-  late final String idempotencyKey = _newIdempotencyKey();
+  late final String idempotencyKey =
+      widget.outcome.idempotencyKey ?? _newIdempotencyKey();
   bool saving = false;
-  bool saved = false;
+  late bool saved = widget.outcome.savedScreeningId != null;
+  late String? saveError = widget.outcome.saveError;
+  late ScreeningResult? savedRecord = widget.outcome.savedRecord;
 
   String _newIdempotencyKey() {
     final random = Random.secure();
@@ -50,13 +54,22 @@ class _ResultScreenState extends State<ResultScreen> {
   Future<void> _save() async {
     final photo = widget.outcome.photo;
     if (photo == null || saving || saved) return;
+    final ownerId = widget.outcome.ownerId;
+    if (ownerId != null && ClerkAuth.userOf(context)?.id != ownerId) {
+      setState(() => saveError =
+          'This screening belongs to a different session. Sign in with the original account.');
+      return;
+    }
     setState(() => saving = true);
     try {
-      await historyRepository.save(photo, idempotencyKey: idempotencyKey);
+      final stored =
+          await historyRepository.save(photo, idempotencyKey: idempotencyKey);
       if (!mounted) return;
       setState(() {
         saving = false;
         saved = true;
+        savedRecord = stored;
+        saveError = null;
       });
       ScreeningHistoryUpdates.instance.saved();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -65,12 +78,18 @@ class _ResultScreenState extends State<ResultScreen> {
       );
     } on ScreeningHistoryException catch (error) {
       if (!mounted) return;
-      setState(() => saving = false);
+      setState(() {
+        saving = false;
+        saveError = error.message;
+      });
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(error.message)));
     } on FormatException {
       if (!mounted) return;
-      setState(() => saving = false);
+      setState(() {
+        saving = false;
+        saveError = 'The saved result could not be verified.';
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('The saved result could not be verified.')),
@@ -87,13 +106,9 @@ class _ResultScreenState extends State<ResultScreen> {
         centerTitle: true,
         title: const Text('Screening result'),
         leading: IconButton(
-          onPressed: () => Navigator.of(context, rootNavigator: true)
-              .pushNamedAndRemoveUntil(
-            AppRoutes.home,
-            (_) => false,
-          ),
+          onPressed: () => Navigator.maybePop(context),
           icon: const Icon(Icons.arrow_back_rounded),
-          tooltip: 'Back to home',
+          tooltip: 'Back',
         ),
         actions: [
           IconButton(
@@ -125,8 +140,7 @@ class _ResultScreenState extends State<ResultScreen> {
               child: FilledButton(
                 onPressed: () => Navigator.pushNamed(
                   context,
-                  AppRoutes.referral,
-                  arguments: result,
+                  AppRoutes.doctorSearch,
                 ),
                 child: const Row(
                   children: [
@@ -134,7 +148,7 @@ class _ResultScreenState extends State<ResultScreen> {
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Find a dental professional',
+                        'Find verified Doctors',
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -143,27 +157,58 @@ class _ResultScreenState extends State<ResultScreen> {
                 ),
               ),
             ),
+            TextButton(
+              onPressed: () => Navigator.pushNamed(context, AppRoutes.referral,
+                  arguments: result),
+              child: const Text('Explore care locations (demo)'),
+            ),
             const SizedBox(height: 10),
+            if (savedRecord != null) ...[
+              OutlinedButton.icon(
+                onPressed: () => Navigator.pushNamed(
+                  context,
+                  AppRoutes.historyDetail,
+                  arguments: savedRecord,
+                ),
+                icon: const Icon(Icons.rate_review_outlined),
+                label: const Text('Request Doctor review'),
+              ),
+              const SizedBox(height: 10),
+            ],
+            if (saved)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 10),
+                child: Text('Saved to your private History.'),
+              ),
+            if (saveError != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Text('Not saved: $saveError',
+                    style: const TextStyle(color: AppColors.warning)),
+              ),
             Row(
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed:
-                        widget.outcome.photo == null || saved ? null : _save,
-                    icon: saving
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(saved
-                            ? Icons.bookmark_added_rounded
-                            : Icons.bookmark_border_rounded),
-                    label: Text(
-                      saving ? 'Saving…' : (saved ? 'Saved' : 'Save result'),
+                if (!saved)
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed:
+                          widget.outcome.photo == null || saved ? null : _save,
+                      icon: saving
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(saved
+                              ? Icons.bookmark_added_rounded
+                              : Icons.bookmark_border_rounded),
+                      label: Text(saving
+                          ? 'Saving…'
+                          : saveError != null
+                              ? 'Retry saving'
+                              : 'Save result'),
                     ),
                   ),
-                ),
-                const SizedBox(width: 10),
+                if (!saved) const SizedBox(width: 10),
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () => Navigator.pushNamed(

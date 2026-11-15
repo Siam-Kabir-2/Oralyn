@@ -10,6 +10,7 @@ import '../../../models/screening_result.dart';
 import '../../../services/screening_history_service.dart';
 import '../../../services/screening_history_updates.dart';
 import '../../../services/review_request_service.dart';
+import '../doctors/verified_doctor_screens.dart';
 import '../../widgets/common/app_components.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -147,6 +148,7 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
   ReviewRequestStatus? reviewRequest;
   Map<String, dynamic>? doctorFeedback;
   String? reviewError;
+  String? preferredDoctorName;
   final reviewService = ReviewRequestService();
   late final ScreeningHistoryRepository repository =
       widget.repository ?? ScreeningHistoryApiRepository();
@@ -165,7 +167,10 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
       if (!mounted) return;
       for (final item in requests) {
         if (item.screeningId == widget.result.id) {
-          setState(() => reviewRequest = item);
+          setState(() {
+            reviewRequest = item;
+            preferredDoctorName = item.preferredDoctorName;
+          });
           break;
         }
       }
@@ -184,14 +189,25 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
   }
 
   Future<void> _requestReview() async {
+    final doctor = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('Choose a Doctor')),
+          body: const VerifiedDoctorDirectory(selecting: true),
+        ),
+      ),
+    );
+    if (doctor == null || !mounted) return;
+    final directoryId = doctor['directory_id'] as String?;
+    if (directoryId == null) return;
+    final doctorName = doctor['display_name'] as String? ?? 'Selected Doctor';
     final consented = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Request Doctor review?'),
-        content: const Text(
-          'If you continue, your saved oral image, AI screening result, and '
-          'visual explanation may be shared with a verified Doctor assigned '
-          'to this case. The request will be stored for review tracking.',
+        content: Text(
+          'Preferred Doctor: $doctorName. Your saved oral image, AI screening result, and visual explanation may be shared after an authorized assignment. Choosing a Doctor does not assign the case immediately.',
         ),
         actions: [
           TextButton(
@@ -206,10 +222,12 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
     if (consented != true || !mounted) return;
     setState(() => requestingReview = true);
     try {
-      final result = await reviewService.request(widget.result.id);
+      final result = await reviewService.request(widget.result.id,
+          preferredDoctorDirectoryId: directoryId);
       if (mounted)
         setState(() {
           reviewRequest = result;
+          preferredDoctorName = doctorName;
           reviewError = null;
         });
     } on ReviewRequestException catch (error) {
@@ -351,6 +369,8 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
                   ? 'Requesting review…'
                   : 'Request Doctor review'),
             ),
+          if (reviewRequest != null && preferredDoctorName != null)
+            _SavedData(label: 'Preferred Doctor', value: preferredDoctorName!),
           if (reviewError != null)
             Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -359,11 +379,10 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
           const SizedBox(height: 12),
           if (result.risk != RiskLevel.lowConcern)
             PrimaryButton(
-              label: 'Find Care',
+              label: 'Find verified Doctors',
               onPressed: () => Navigator.pushNamed(
                 context,
-                AppRoutes.referral,
-                arguments: result,
+                AppRoutes.doctorSearch,
               ),
               icon: Icons.medical_services_outlined,
             ),

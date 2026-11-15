@@ -6,9 +6,13 @@ import '../../../services/doctor_case_service.dart';
 /// Public professional details come from verified Doctor records only.
 class VerifiedDoctorDirectory extends StatefulWidget {
   const VerifiedDoctorDirectory(
-      {super.key, this.embedded = false, this.caseService});
+      {super.key,
+      this.embedded = false,
+      this.selecting = false,
+      this.caseService});
 
   final bool embedded;
+  final bool selecting;
   final DoctorCaseService? caseService;
 
   @override
@@ -32,10 +36,12 @@ class _VerifiedDoctorDirectoryState extends State<VerifiedDoctorDirectory> {
   Widget build(BuildContext context) => ListView(
         padding: const EdgeInsets.fromLTRB(22, 20, 22, 30),
         children: [
-          Text('Find Care', style: Theme.of(context).textTheme.headlineMedium),
+          Text(widget.selecting ? 'Choose a Doctor' : 'Find Care',
+              style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 8),
-          const Text(
-              'Verified Oralyn Doctor profiles. Review requests are made from your saved screening.'),
+          Text(widget.selecting
+              ? 'Choose a verified Doctor to prefer for this review request. Assignment is confirmed separately.'
+              : 'Verified Oralyn Doctor profiles. Review requests are made from your saved screening.'),
           const SizedBox(height: 18),
           TextField(
             controller: search,
@@ -70,8 +76,9 @@ class _VerifiedDoctorDirectoryState extends State<VerifiedDoctorDirectory> {
                           .contains(query))
                   .toList();
               if (visible.isEmpty) {
-                return const Text(
-                    'No verified Doctor profiles match this search.');
+                return Text(query.isEmpty
+                    ? 'No verified Doctors are available.'
+                    : 'No verified Doctor profiles match this search.');
               }
               return Column(children: [
                 for (final doctor in visible)
@@ -83,11 +90,29 @@ class _VerifiedDoctorDirectoryState extends State<VerifiedDoctorDirectory> {
                     subtitle: Text(
                         '${doctor['specialization'] ?? ''}\n${doctor['workplace'] ?? ''}'),
                     isThreeLine: true,
-                    onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                            builder: (_) =>
-                                VerifiedDoctorDetail(doctor: doctor))),
+                    trailing: widget.selecting
+                        ? const Icon(Icons.chevron_right_rounded)
+                        : null,
+                    onTap: () {
+                      if (widget.selecting) {
+                        if (doctor['directory_id'] is String) {
+                          Navigator.pop(context, doctor);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                    'Doctor selection is unavailable until the server is updated.')),
+                          );
+                        }
+                      } else {
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  VerifiedDoctorDetail(doctor: doctor),
+                            ));
+                      }
+                    },
                   )),
               ]);
             },

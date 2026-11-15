@@ -84,8 +84,10 @@ class _DoctorApplicationScreenState extends State<DoctorApplicationScreen> {
 }
 
 class DoctorProfileScreen extends StatefulWidget {
-  const DoctorProfileScreen({super.key, this.caseService});
+  const DoctorProfileScreen(
+      {super.key, this.caseService, this.embedded = false});
   final DoctorCaseService? caseService;
+  final bool embedded;
 
   @override
   State<DoctorProfileScreen> createState() => _DoctorProfileScreenState();
@@ -127,85 +129,89 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('My Doctor Profile')),
-        body: FutureBuilder<Map<String, dynamic>>(
-          future: profile,
-          builder: (context, snapshot) {
-            if (snapshot.hasError)
-              return Center(
-                  child: TextButton(
-                onPressed: () => setState(() {
-                  profile = service.myDoctorProfile();
-                }),
-                child: const Text('Profile unavailable. Try again'),
-              ));
-            if (!snapshot.hasData)
-              return const Center(child: CircularProgressIndicator());
-            final value = snapshot.data!;
-            final state = value['verification_state'] as String? ?? 'pending';
-            return ListView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-                children: [
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Row(children: [
-                        const CircleAvatar(
-                          radius: 26,
-                          backgroundColor: AppColors.successSoft,
-                          child: Icon(Icons.medical_services_outlined,
-                              color: AppColors.teal),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(value['display_name'] as String? ?? 'Doctor',
-                                  style:
-                                      Theme.of(context).textTheme.titleLarge),
-                              const SizedBox(height: 3),
-                              Text(ClerkAuth.userOf(context)?.email ?? '',
-                                  style: const TextStyle(
-                                      color: AppColors.secondaryText,
-                                      fontSize: 12.5)),
-                            ],
-                          ),
-                        ),
-                      ]),
+  Widget build(BuildContext context) {
+    final content = FutureBuilder<Map<String, dynamic>>(
+      future: profile,
+      builder: (context, snapshot) {
+        if (snapshot.hasError)
+          return Center(
+              child: TextButton(
+            onPressed: () => setState(() {
+              profile = service.myDoctorProfile();
+            }),
+            child: const Text('Profile unavailable. Try again'),
+          ));
+        if (!snapshot.hasData)
+          return const Center(child: CircularProgressIndicator());
+        final value = snapshot.data!;
+        final state = value['verification_state'] as String? ?? 'pending';
+        return ListView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(children: [
+                    const CircleAvatar(
+                      radius: 26,
+                      backgroundColor: AppColors.successSoft,
+                      child: Icon(Icons.medical_services_outlined,
+                          color: AppColors.teal),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  _DoctorNotice(
-                    icon: state == 'verified'
-                        ? Icons.verified_rounded
-                        : Icons.hourglass_top_rounded,
-                    text:
-                        'Verification: $state. Changing professional details requires a new review and pauses case access until approval.',
-                  ),
-                  const SizedBox(height: 26),
-                  Text('Professional details',
-                      style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  if (state == 'pending' || state == 'verified')
-                    Card(
-                        child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: DoctorDetailsForm(
-                          initial: value,
-                          onSave: save,
-                          saving: saving,
-                          error: error,
-                          buttonLabel: 'Save professional details'),
-                    ))
-                  else
-                    const Text(
-                        'This account cannot edit its professional profile. Contact an administrator.'),
-                ]);
-          },
-        ),
-      );
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(value['display_name'] as String? ?? 'Doctor',
+                              style: Theme.of(context).textTheme.titleLarge),
+                          const SizedBox(height: 3),
+                          Text(ClerkAuth.userOf(context)?.email ?? '',
+                              style: const TextStyle(
+                                  color: AppColors.secondaryText,
+                                  fontSize: 12.5)),
+                        ],
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+              const SizedBox(height: 14),
+              _DoctorNotice(
+                icon: state == 'verified'
+                    ? Icons.verified_rounded
+                    : Icons.hourglass_top_rounded,
+                text:
+                    'Verification: $state. Changing professional details requires a new review and pauses case access until approval.',
+              ),
+              const SizedBox(height: 26),
+              Text('Professional details',
+                  style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              if (state == 'pending' || state == 'verified')
+                Card(
+                    child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: DoctorDetailsForm(
+                      initial: value,
+                      onSave: save,
+                      saving: saving,
+                      error: error,
+                      buttonLabel: 'Save professional details'),
+                ))
+              else
+                const Text(
+                    'This account cannot edit its professional profile. Contact an administrator.'),
+            ]);
+      },
+    );
+    return widget.embedded
+        ? content
+        : Scaffold(
+            appBar: AppBar(title: const Text('My Doctor Profile')),
+            body: content,
+          );
+  }
 }
 
 class _DoctorNotice extends StatelessWidget {
@@ -276,6 +282,20 @@ class _DoctorDetailsFormState extends State<DoctorDetailsForm> {
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           for (final field in controllers.keys) ...[
+            if (field == 'display_name' ||
+                field == 'registration_reference' ||
+                field == 'workplace') ...[
+              if (field != 'display_name') const SizedBox(height: 10),
+              Text(
+                switch (field) {
+                  'display_name' => 'Identity',
+                  'registration_reference' => 'Professional credentials',
+                  _ => 'Current workplace',
+                },
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 10),
+            ],
             TextFormField(
               controller: controllers[field],
               textCapitalization: TextCapitalization.words,
@@ -319,49 +339,51 @@ class _DoctorDetailsFormState extends State<DoctorDetailsForm> {
 }
 
 class DoctorMessagesScreen extends StatelessWidget {
-  const DoctorMessagesScreen({super.key});
+  const DoctorMessagesScreen({super.key, this.embedded = false});
+  final bool embedded;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Messages')),
-        body: ListView(padding: const EdgeInsets.all(22), children: [
-          Text('Patient conversations',
-              style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 10),
-          const Text(
-              'Coming Soon · Messaging is not available yet. A structured case review does not open a conversation.'),
-          const SizedBox(height: 24),
-          for (final title in [
-            'Chat requests',
-            'Active conversations',
-            'Closed conversations'
-          ])
-            Card(
-                child: ListTile(
-                    title: Text(title),
-                    subtitle: const Text(
-                        'No conversations available in this version.'),
-                    leading: const Icon(Icons.lock_outline))),
-          const SizedBox(height: 12),
-          const Text(
-              'Future request decisions require an assigned case and an authorized Doctor. No request can be approved in this version.'),
-          const SizedBox(height: 8),
-          const Wrap(spacing: 10, children: [
-            OutlinedButton(
-                onPressed: null, child: Text('Approve · Coming Soon')),
-            OutlinedButton(
-                onPressed: null, child: Text('Decline · Coming Soon')),
-          ]),
-          const SizedBox(height: 22),
-          const Text('Conversation unavailable · No approved chat request'),
-          const SizedBox(height: 8),
-          const TextField(
-              enabled: false,
-              decoration: InputDecoration(
-                  labelText: 'Message composer',
-                  hintText: 'Available only for approved conversations')),
-          const SizedBox(height: 8),
-          const FilledButton(onPressed: null, child: Text('Send')),
-        ]),
-      );
+  Widget build(BuildContext context) {
+    final content = ListView(padding: const EdgeInsets.all(22), children: [
+      Text('Patient conversations',
+          style: Theme.of(context).textTheme.headlineMedium),
+      const SizedBox(height: 10),
+      const Text(
+          'Coming Soon · Messaging is not available yet. A structured case review does not open a conversation.'),
+      const SizedBox(height: 24),
+      for (final title in [
+        'Chat requests',
+        'Active conversations',
+        'Closed conversations'
+      ])
+        Card(
+            child: ListTile(
+                title: Text(title),
+                subtitle:
+                    const Text('No conversations available in this version.'),
+                leading: const Icon(Icons.lock_outline))),
+      const SizedBox(height: 12),
+      const Text(
+          'Future request decisions require an assigned case and an authorized Doctor. No request can be approved in this version.'),
+      const SizedBox(height: 8),
+      const Wrap(spacing: 10, children: [
+        OutlinedButton(onPressed: null, child: Text('Approve · Coming Soon')),
+        OutlinedButton(onPressed: null, child: Text('Decline · Coming Soon')),
+      ]),
+      const SizedBox(height: 22),
+      const Text('Conversation unavailable · No approved chat request'),
+      const SizedBox(height: 8),
+      const TextField(
+          enabled: false,
+          decoration: InputDecoration(
+              labelText: 'Message composer',
+              hintText: 'Available only for approved conversations')),
+      const SizedBox(height: 8),
+      const FilledButton(onPressed: null, child: Text('Send')),
+    ]);
+    return embedded
+        ? content
+        : Scaffold(
+            appBar: AppBar(title: const Text('Messages')), body: content);
+  }
 }

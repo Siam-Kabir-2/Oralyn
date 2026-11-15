@@ -14,16 +14,27 @@ void main() {
       expect(request.url.path, '/screenings/screening-1/review-request');
       expect(request.headers['authorization'], 'Bearer session-one');
       expect(jsonDecode(request.body)['consent_to_share'], isTrue);
+      expect(jsonDecode(request.body)['preferred_doctor_directory_id'],
+          '40000000-0000-4000-8000-000000000001');
       return http.Response(
-          jsonEncode({'id': 'request-1', 'status': 'pending_assignment'}), 200);
+          jsonEncode({
+            'id': 'request-1',
+            'status': 'pending_assignment',
+            'preferred_doctor_directory_id':
+                '40000000-0000-4000-8000-000000000001'
+          }),
+          200);
     });
     final service = ReviewRequestService(
         client: client,
         predictionEndpoint: endpoint,
         tokenProvider: () async => 'session-one');
-    final result = await service.request('screening-1');
+    final result = await service.request('screening-1',
+        preferredDoctorDirectoryId: '40000000-0000-4000-8000-000000000001');
     expect(result.id, 'request-1');
     expect(result.status, 'pending_assignment');
+    expect(result.preferredDoctorDirectoryId,
+        '40000000-0000-4000-8000-000000000001');
   });
 
   test('list uses authenticated request and preserves database status',
@@ -37,7 +48,8 @@ void main() {
               {
                 'id': 'request-1',
                 'screening_id': 'screening-1',
-                'status': 'assigned'
+                'status': 'assigned',
+                'preferred_doctor_name': 'Synthetic Doctor'
               }
             ]
           }),
@@ -50,6 +62,7 @@ void main() {
     final items = await service.list();
     expect(items.single.screeningId, 'screening-1');
     expect(items.single.status, 'assigned');
+    expect(items.single.preferredDoctorName, 'Synthetic Doctor');
   });
 
   test('expired session never sends a review request', () async {

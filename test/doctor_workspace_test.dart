@@ -183,13 +183,19 @@ void main() {
       ),
     ));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Case screening-1'), findsOneWidget);
-    expect(find.textContaining('1 assigned'), findsOneWidget);
-    await tester.drag(find.byType(ListView).first, const Offset(0, -420));
+    await tester.tap(find.text('Cases'));
     await tester.pumpAndSettle();
+    expect(find.textContaining('Case screening-1'), findsOneWidget);
+    expect(find.text('Assigned cases'), findsWidgets);
     await tester.tap(find.widgetWithText(ChoiceChip, 'in review'));
     await tester.pumpAndSettle();
-    expect(find.text('No cases in this status.'), findsOneWidget);
+    expect(find.text('No cases match this view.'), findsOneWidget);
+    await tester.tap(find.text('Messages').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Patient conversations'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Doctor workspace'), findsOneWidget);
     service.close();
   });
 }

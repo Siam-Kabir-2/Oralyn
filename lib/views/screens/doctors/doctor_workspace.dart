@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../services/doctor_case_service.dart';
 import '../../../services/screening_history_service.dart';
 import '../home/main_shell.dart';
+import 'doctor_account_screens.dart';
 
 class RoleHomeScreen extends StatefulWidget {
   const RoleHomeScreen({super.key, this.caseService, this.preferredRole});
@@ -237,6 +238,9 @@ class _DoctorWorkspaceState extends State<DoctorWorkspace> {
   late final service = widget.caseService ?? DoctorCaseService();
   late Future<List<Map<String, dynamic>>> cases = service.cases();
   String filter = 'All';
+  int tab = 0;
+
+  void refreshCases() => setState(() => cases = service.cases());
   @override
   void dispose() {
     if (widget.caseService == null) service.close();
@@ -247,249 +251,493 @@ class _DoctorWorkspaceState extends State<DoctorWorkspace> {
   Widget build(BuildContext context) {
     final doctor = widget.profile['doctor_profiles'] as Map<String, dynamic>?;
     final verified = doctor?['verification_state'] == 'verified';
-    return Scaffold(
-      appBar: AppBar(title: const Text('Doctor workspace'), actions: [
-        IconButton(
-            tooltip: 'Screening server',
-            icon: const Icon(Icons.settings_ethernet),
-            onPressed: () =>
-                Navigator.pushNamed(context, AppRoutes.apiSettings)),
-        IconButton(
-            tooltip: 'Sign out',
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await ClerkAuth.of(context, listen: false).signOut();
-              if (context.mounted)
-                Navigator.of(context, rootNavigator: true)
-                    .pushNamedAndRemoveUntil(
-                        AppRoutes.authChoice, (_) => false);
-            }),
-      ]),
-      body: SafeArea(
-          child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 100),
-              children: [
-            Text('CLINICAL WORKSPACE',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppColors.teal,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.5)),
-            const SizedBox(height: 6),
-            Text('Welcome back',
-                style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 18),
-            Container(
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                gradient: const LinearGradient(
-                  colors: [AppColors.ink, AppColors.inkLight],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: .13),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Icon(Icons.medical_services_outlined,
-                            color: Colors.white, size: 27),
-                      ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 7),
-                        decoration: BoxDecoration(
-                          color: verified
-                              ? AppColors.tealBright.withValues(alpha: .18)
-                              : Colors.white.withValues(alpha: .12),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: Text(
-                          verified
-                              ? 'Verification active'
-                              : 'Verification ${doctor?['verification_state'] ?? 'pending'}',
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ]),
-                    const SizedBox(height: 20),
-                    Text(doctor?['display_name'] as String? ?? 'Doctor',
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineMedium
-                            ?.copyWith(color: Colors.white)),
-                    const SizedBox(height: 4),
-                    Text(
-                        doctor?['specialization'] as String? ??
-                            'Care professional',
-                        style: const TextStyle(color: Color(0xFFD4E7E3))),
-                    if (!verified) ...[
-                      const SizedBox(height: 12),
-                      const Text('Assigned cases are unavailable.',
-                          style: TextStyle(color: Colors.white70)),
-                    ],
-                  ]),
-            ),
-            const SizedBox(height: 24),
-            Text('Your workspace',
-                style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(
-                child: _WorkspaceAction(
-                  icon: Icons.badge_outlined,
-                  label: 'My Doctor Profile',
-                  color: AppColors.mint,
-                  onTap: () =>
-                      Navigator.pushNamed(context, AppRoutes.doctorProfile),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _WorkspaceAction(
-                  icon: Icons.chat_bubble_outline,
-                  label: 'Messages · Coming Soon',
-                  color: AppColors.peachSoft,
-                  onTap: () =>
-                      Navigator.pushNamed(context, AppRoutes.doctorMessages),
-                ),
-              ),
-            ]),
-            const SizedBox(height: 28),
-            Row(children: [
-              Expanded(
-                child: Text('Assigned cases',
-                    style: Theme.of(context).textTheme.titleLarge),
-              ),
+    return PopScope(
+      canPop: tab == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && tab != 0) setState(() => tab = 0);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+            title: Text(const [
+              'Doctor workspace',
+              'Assigned cases',
+              'Reviews',
+              'Messages',
+              'My profile'
+            ][tab]),
+            actions: [
               IconButton(
-                tooltip: 'Refresh cases',
-                icon: const Icon(Icons.refresh_rounded),
-                onPressed: () => setState(() => cases = service.cases()),
-              ),
+                  tooltip: 'Screening server',
+                  icon: const Icon(Icons.settings_ethernet),
+                  onPressed: () =>
+                      Navigator.pushNamed(context, AppRoutes.apiSettings)),
+              IconButton(
+                  tooltip: 'Sign out',
+                  icon: const Icon(Icons.logout),
+                  onPressed: () async {
+                    await ClerkAuth.of(context, listen: false).signOut();
+                    if (context.mounted)
+                      Navigator.of(context, rootNavigator: true)
+                          .pushNamedAndRemoveUntil(
+                              AppRoutes.authChoice, (_) => false);
+                  }),
             ]),
-            const SizedBox(height: 12),
-            if (verified)
-              FutureBuilder<List<Map<String, dynamic>>>(
-                future: cases,
-                builder: (context, snapshot) {
-                  if (snapshot.hasError)
-                    return TextButton(
-                        onPressed: () => setState(() {
-                              cases = service.cases();
-                            }),
-                        child: const Text('Could not load cases. Try again'));
-                  if (!snapshot.hasData)
-                    return const Center(child: CircularProgressIndicator());
-                  if (snapshot.data!.isEmpty) return const _WorkspaceEmpty();
-                  final rows = snapshot.data!;
-                  final counts = <String, int>{};
-                  for (final row in rows) {
-                    final request =
-                        row['review_requests'] as Map<String, dynamic>;
-                    final status = request['status'] as String;
-                    counts[status] = (counts[status] ?? 0) + 1;
-                  }
-                  final visible = rows.where((row) =>
-                      filter == 'All' ||
-                      (row['review_requests']
-                              as Map<String, dynamic>)['status'] ==
-                          filter);
-                  return Column(
+        body: IndexedStack(index: tab, children: [
+          SafeArea(
+              child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 100),
+                  children: [
+                Text('CLINICAL WORKSPACE',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppColors.teal,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.5)),
+                const SizedBox(height: 6),
+                Text('Welcome back',
+                    style: Theme.of(context).textTheme.headlineMedium),
+                const SizedBox(height: 18),
+                Container(
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    gradient: const LinearGradient(
+                      colors: [AppColors.ink, AppColors.inkLight],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Card(
-                            child: Padding(
-                          padding: const EdgeInsets.all(18),
-                          child: Row(children: [
-                            const Icon(Icons.folder_open_outlined,
-                                color: AppColors.teal),
-                            const SizedBox(width: 12),
-                            Expanded(
-                                child: Text(
-                              '${counts['assigned'] ?? 0} assigned · ${counts['in_review'] ?? 0} in review · ${counts['reviewed'] ?? 0} reviewed',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w700),
-                            )),
-                          ]),
-                        )),
-                        const SizedBox(height: 16),
-                        SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                                children: [
-                              'All',
-                              'assigned',
-                              'in_review',
-                              'reviewed'
-                            ]
-                                    .map((value) => Padding(
-                                        padding:
-                                            const EdgeInsets.only(right: 8),
-                                        child: ChoiceChip(
-                                            label: Text(
-                                                value.replaceAll('_', ' ')),
-                                            selected: filter == value,
-                                            onSelected: (_) => setState(
-                                                () => filter = value))))
-                                    .toList())),
-                        const SizedBox(height: 12),
-                        if (visible.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 24),
-                            child: Text('No cases in this status.'),
+                        Row(children: [
+                          Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: .13),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(Icons.medical_services_outlined,
+                                color: Colors.white, size: 27),
                           ),
-                        ...visible.map((caseRow) {
-                          final request = caseRow['review_requests']
-                              as Map<String, dynamic>;
-                          return Card(
-                              margin: const EdgeInsets.only(top: 10),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 10),
-                                leading: const CircleAvatar(
-                                  backgroundColor: AppColors.successSoft,
-                                  child: Icon(Icons.assignment_outlined,
-                                      color: AppColors.teal),
-                                ),
-                                title: Text('Case ${request['screening_id']}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis),
-                                subtitle: Text(
-                                    '${(request['status'] as String).replaceAll('_', ' ')} · Assigned ${caseRow['assigned_at'] ?? 'recently'}'),
-                                trailing:
-                                    const Icon(Icons.chevron_right_rounded),
-                                onTap: () async {
-                                  await Navigator.push(
-                                      context,
-                                      MaterialPageRoute<void>(
-                                          builder: (_) => DoctorCaseScreen(
-                                              assignmentId:
-                                                  caseRow['id'] as String)));
-                                  if (mounted) {
-                                    setState(() {
-                                      cases = service.cases();
-                                    });
-                                  }
-                                },
-                              ));
-                        }),
-                      ]);
-                },
-              ),
-          ])),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: verified
+                                  ? AppColors.tealBright.withValues(alpha: .18)
+                                  : Colors.white.withValues(alpha: .12),
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: Text(
+                              verified
+                                  ? 'Verification active'
+                                  : 'Verification ${doctor?['verification_state'] ?? 'pending'}',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ]),
+                        const SizedBox(height: 20),
+                        Text(doctor?['display_name'] as String? ?? 'Doctor',
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineMedium
+                                ?.copyWith(color: Colors.white)),
+                        const SizedBox(height: 4),
+                        Text(
+                            doctor?['specialization'] as String? ??
+                                'Care professional',
+                            style: const TextStyle(color: Color(0xFFD4E7E3))),
+                        if (!verified) ...[
+                          const SizedBox(height: 12),
+                          const Text('Assigned cases are unavailable.',
+                              style: TextStyle(color: Colors.white70)),
+                        ],
+                      ]),
+                ),
+                const SizedBox(height: 24),
+                Text('Your workspace',
+                    style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(
+                    child: _WorkspaceAction(
+                      icon: Icons.badge_outlined,
+                      label: 'My Doctor Profile',
+                      color: AppColors.mint,
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.doctorProfile),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _WorkspaceAction(
+                      icon: Icons.chat_bubble_outline,
+                      label: 'Messages · Coming Soon',
+                      color: AppColors.peachSoft,
+                      onTap: () => Navigator.pushNamed(
+                          context, AppRoutes.doctorMessages),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 28),
+                Row(children: [
+                  Expanded(
+                    child: Text('Assigned cases',
+                        style: Theme.of(context).textTheme.titleLarge),
+                  ),
+                  IconButton(
+                    tooltip: 'Refresh cases',
+                    icon: const Icon(Icons.refresh_rounded),
+                    onPressed: () => setState(() => cases = service.cases()),
+                  ),
+                ]),
+                const SizedBox(height: 12),
+                if (verified)
+                  FutureBuilder<List<Map<String, dynamic>>>(
+                    future: cases,
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError)
+                        return TextButton(
+                            onPressed: () => setState(() {
+                                  cases = service.cases();
+                                }),
+                            child:
+                                const Text('Could not load cases. Try again'));
+                      if (!snapshot.hasData)
+                        return const Center(child: CircularProgressIndicator());
+                      if (snapshot.data!.isEmpty)
+                        return const _WorkspaceEmpty();
+                      final rows = snapshot.data!;
+                      final counts = <String, int>{};
+                      for (final row in rows) {
+                        final request =
+                            row['review_requests'] as Map<String, dynamic>;
+                        final status = request['status'] as String;
+                        counts[status] = (counts[status] ?? 0) + 1;
+                      }
+                      final visible = rows.where((row) =>
+                          filter == 'All' ||
+                          (row['review_requests']
+                                  as Map<String, dynamic>)['status'] ==
+                              filter);
+                      return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Card(
+                                child: Padding(
+                              padding: const EdgeInsets.all(18),
+                              child: Row(children: [
+                                const Icon(Icons.folder_open_outlined,
+                                    color: AppColors.teal),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                    child: Text(
+                                  '${counts['assigned'] ?? 0} assigned · ${counts['in_review'] ?? 0} in review · ${counts['reviewed'] ?? 0} reviewed',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700),
+                                )),
+                              ]),
+                            )),
+                            const SizedBox(height: 16),
+                            SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                    children: [
+                                  'All',
+                                  'assigned',
+                                  'in_review',
+                                  'reviewed'
+                                ]
+                                        .map((value) => Padding(
+                                            padding:
+                                                const EdgeInsets.only(right: 8),
+                                            child: ChoiceChip(
+                                                label: Text(
+                                                    value.replaceAll('_', ' ')),
+                                                selected: filter == value,
+                                                onSelected: (_) => setState(
+                                                    () => filter = value))))
+                                        .toList())),
+                            const SizedBox(height: 12),
+                            if (visible.isEmpty)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24),
+                                child: Text('No cases in this status.'),
+                              ),
+                            ...visible.map((caseRow) {
+                              final request = caseRow['review_requests']
+                                  as Map<String, dynamic>;
+                              return Card(
+                                  margin: const EdgeInsets.only(top: 10),
+                                  child: ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 10),
+                                    leading: const CircleAvatar(
+                                      backgroundColor: AppColors.successSoft,
+                                      child: Icon(Icons.assignment_outlined,
+                                          color: AppColors.teal),
+                                    ),
+                                    title: Text(
+                                        'Case ${request['screening_id']}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis),
+                                    subtitle: Text(
+                                        '${(request['status'] as String).replaceAll('_', ' ')} · Assigned ${caseRow['assigned_at'] ?? 'recently'}'),
+                                    trailing:
+                                        const Icon(Icons.chevron_right_rounded),
+                                    onTap: () async {
+                                      await Navigator.push(
+                                          context,
+                                          MaterialPageRoute<void>(
+                                              builder: (_) => DoctorCaseScreen(
+                                                  assignmentId: caseRow['id']
+                                                      as String)));
+                                      if (mounted) {
+                                        setState(() {
+                                          cases = service.cases();
+                                        });
+                                      }
+                                    },
+                                  ));
+                            }),
+                          ]);
+                    },
+                  ),
+              ])),
+          if (verified && tab == 1)
+            _DoctorCaseQueue(
+              cases: cases,
+              onRefresh: refreshCases,
+              reviewsOnly: false,
+            )
+          else
+            const SizedBox(),
+          if (verified && tab == 2)
+            _DoctorCaseQueue(
+              cases: cases,
+              onRefresh: refreshCases,
+              reviewsOnly: true,
+            )
+          else
+            const SizedBox(),
+          if (tab == 3)
+            const DoctorMessagesScreen(embedded: true)
+          else
+            const SizedBox(),
+          if (tab == 4)
+            DoctorProfileScreen(embedded: true, caseService: service)
+          else
+            const SizedBox(),
+        ]),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: tab,
+          onDestinationSelected: (value) => setState(() => tab = value),
+          destinations: const [
+            NavigationDestination(
+                icon: Icon(Icons.dashboard_outlined),
+                selectedIcon: Icon(Icons.dashboard),
+                label: 'Dashboard'),
+            NavigationDestination(
+                icon: Icon(Icons.folder_open_outlined),
+                selectedIcon: Icon(Icons.folder_open),
+                label: 'Cases'),
+            NavigationDestination(
+                icon: Icon(Icons.rate_review_outlined),
+                selectedIcon: Icon(Icons.rate_review),
+                label: 'Reviews'),
+            NavigationDestination(
+                icon: Icon(Icons.chat_bubble_outline),
+                selectedIcon: Icon(Icons.chat_bubble),
+                label: 'Messages'),
+            NavigationDestination(
+                icon: Icon(Icons.person_outline),
+                selectedIcon: Icon(Icons.person),
+                label: 'Profile'),
+          ],
+        ),
+      ),
     );
   }
+}
+
+class _DoctorCaseQueue extends StatefulWidget {
+  const _DoctorCaseQueue({
+    required this.cases,
+    required this.onRefresh,
+    required this.reviewsOnly,
+  });
+
+  final Future<List<Map<String, dynamic>>> cases;
+  final VoidCallback onRefresh;
+  final bool reviewsOnly;
+
+  @override
+  State<_DoctorCaseQueue> createState() => _DoctorCaseQueueState();
+}
+
+class _DoctorCaseQueueState extends State<_DoctorCaseQueue> {
+  final search = TextEditingController();
+  String status = 'All';
+
+  @override
+  void dispose() {
+    search.dispose();
+    super.dispose();
+  }
+
+  Widget _caseCard(Map<String, dynamic> row) {
+    final request = row['review_requests'] as Map<String, dynamic>? ?? {};
+    final id = row['id'] as String?;
+    final screening = request['screening_id'] as String? ?? 'Screening';
+    final state =
+        (request['status'] as String? ?? 'assigned').replaceAll('_', ' ');
+    return Card(
+      child: ListTile(
+        leading: const CircleAvatar(
+          backgroundColor: AppColors.successSoft,
+          child: Icon(Icons.assignment_outlined, color: AppColors.teal),
+        ),
+        title: Text('Case $screening',
+            maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Text('$state · Assigned ${row['assigned_at'] ?? 'recently'}'),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: id == null
+            ? null
+            : () async {
+                await Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => DoctorCaseScreen(assignmentId: id),
+                    ));
+                if (mounted) widget.onRefresh();
+              },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+          children: [
+            Text(widget.reviewsOnly ? 'Review queue' : 'Assigned cases',
+                style: Theme.of(context).textTheme.headlineMedium),
+            const SizedBox(height: 8),
+            Text(widget.reviewsOnly
+                ? 'Open an assigned case to prepare or submit your professional review.'
+                : 'Only cases assigned to your verified account appear here.'),
+            const SizedBox(height: 18),
+            if (!widget.reviewsOnly) ...[
+              TextField(
+                controller: search,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  hintText: 'Search screening ID',
+                  prefixIcon: Icon(Icons.search_rounded),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(children: [
+                  for (final value in [
+                    'All',
+                    'assigned',
+                    'in_review',
+                    'reviewed'
+                  ])
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(value.replaceAll('_', ' ')),
+                        selected: status == value,
+                        onSelected: (_) => setState(() => status = value),
+                      ),
+                    ),
+                ]),
+              ),
+              const SizedBox(height: 12),
+            ],
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: widget.onRefresh,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Refresh'),
+              ),
+            ),
+            FutureBuilder<List<Map<String, dynamic>>>(
+              future: widget.cases,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text(
+                        'Cases are unavailable. Check your connection and refresh.'),
+                  );
+                }
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final rows = snapshot.data!.where((row) {
+                  final request =
+                      row['review_requests'] as Map<String, dynamic>? ?? {};
+                  final value = request['status'] as String? ?? '';
+                  return (widget.reviewsOnly ||
+                          status == 'All' ||
+                          value == status) &&
+                      (widget.reviewsOnly ||
+                          '${request['screening_id']}'
+                              .toLowerCase()
+                              .contains(search.text.trim().toLowerCase()));
+                }).toList();
+                if (rows.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Text(snapshot.data!.isEmpty
+                        ? 'No assigned cases yet.'
+                        : 'No cases match this view.'),
+                  );
+                }
+                if (!widget.reviewsOnly) {
+                  return Column(children: rows.map(_caseCard).toList());
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final group in [
+                      ('assigned', 'Awaiting review'),
+                      ('in_review', 'In progress'),
+                      ('reviewed', 'Submitted reviews'),
+                      ('closed', 'Closed cases'),
+                    ]) ...[
+                      if (rows.any((row) =>
+                          (row['review_requests'] as Map?)?['status'] ==
+                          group.$1)) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(0, 16, 0, 8),
+                          child: Text(group.$2,
+                              style: Theme.of(context).textTheme.titleLarge),
+                        ),
+                        ...rows
+                            .where((row) =>
+                                (row['review_requests'] as Map?)?['status'] ==
+                                group.$1)
+                            .map(_caseCard),
+                      ],
+                    ],
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      );
 }
 
 class _WorkspaceAction extends StatelessWidget {

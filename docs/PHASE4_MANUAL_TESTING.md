@@ -17,13 +17,21 @@ to the same project on 2026-11-14; its 13 assertions and the existing 26
 Phase 3C assertions both passed afterward. The current backend exposes the
 Doctor routes. The complete phone workflow remains for manual verification.
 
-The current app build lets a signed-in user browse the general Patient UI
-while the FastAPI role lookup is pending or unavailable. Use the connection
-banner's **Set up** action or **Profile → Screening server** to enter the
-current tunnel URL, then retry. Doctor cases remain unavailable until the
-server confirms a verified Doctor role. After saving a screening, the already
-open History tab should refresh without restarting the app. Sign-out should
-return to the Patient/Doctor/Admin choice screen.
+Patient sign-in can browse general screens while the FastAPI role lookup is
+pending or unavailable. Unknown or Doctor sign-in shows connection settings
+and retry; it does not silently show a Patient workspace. Enter the current
+tunnel URL in **Screening server**, then retry. Doctor cases remain unavailable
+until the server confirms a verified Doctor role. Saved History refreshes
+without reopening the app. Sign-out returns to the Patient/Doctor/Admin
+choice screen.
+
+The application refinement build adds automatic private saving by explicit
+opt-in, a Doctor tab bar, Android back handling, and preferred-Doctor review
+selection. The preference flow requires the **new** local migration
+`supabase/migrations/202611160001_review_doctor_preference.sql`. It has not
+been applied to the development project. Do not run it without a separate
+review and approval. The older Phase 3C and Doctor onboarding migrations
+remain applied and must not be rerun.
 
 ### Live Phase 3C verification record
 
@@ -300,18 +308,26 @@ has no clinical meaning.
 
 Sign in as Patient A and perform these steps:
 
-1. Tap **Start screening** and select the generated PNG from Downloads.
+1. Tap **Start screening**, turn on **Save this screening privately**, then
+   select the generated PNG from Downloads. Leave the switch off to test an
+   unsaved screening.
 2. Continue through preview, quality and analysis.
 3. Expected: a real AI-assisted result appears with a primary class, score,
    existing guidance and Grad-CAM when available. The secondary model runs
    only for `OPMD` or `Oral_Cancer` primary output.
-4. Tap **Save result**. Expected: `Screening saved to your private history.`
+4. Expected: saving runs automatically before the result appears; the result
+   says **Saved to your private History**. If saving fails, the result remains
+   visible with **Retry saving**. An unsaved screening can still be saved
+   manually from its result screen.
 5. Open **History**, then the saved record. Expected: original image, result
    and private visual explanation load.
-6. Tap **Request Doctor review**, read the sharing explanation, then tap
-   **I consent and request review**.
-7. Expected: status becomes **Pending assignment**. Reopening the record must
-   show the same persisted request rather than creating a duplicate.
+6. Tap **Request Doctor review** on the saved result or History detail. Choose
+   a live verified Doctor, read the sharing explanation, then tap
+   **I consent and request review**. A pending or suspended Doctor must not
+   be selectable; no dummy Doctor should appear on an API failure.
+7. Expected: status becomes **Pending assignment**, and the preferred Doctor
+   name appears on the request. This does not give the Doctor case access.
+   Reopening the record must show the same request rather than a duplicate.
 
 In Supabase SQL Editor, find the synthetic request without exposing image data:
 

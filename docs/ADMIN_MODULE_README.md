@@ -8,6 +8,8 @@ One Clerk application authenticates Patients, Doctors and Admins. Flutter obtain
 
 The Phase 3C schema is in `supabase/migrations/202611120001_phase3c_authorization.sql`. The Doctor onboarding extension is `supabase/migrations/202611130001_doctor_onboarding.sql`; it was applied to the authorized development project `arokswvcjddbzwthtqkh` on 2026-11-14 and both SQL suites passed. Do not apply it there again. It adds `admin` to `profiles.application_role`, `doctor_profiles.workplace`, and service-role-only Doctor application/profile functions. It does not add Admin endpoints or policies.
 
+The follow-up preference migration is `supabase/migrations/202611160001_review_doctor_preference.sql`. It is **prepared locally and has not been applied to the development database**. After a separate approval and migration test, it adds an opaque `doctor_profiles.directory_id`, a nullable `review_requests.preferred_doctor_directory_id`, and an authenticated RPC that validates ownership and verified Doctor eligibility. The public API and review record use only the opaque UUID; the Clerk subject stays server-side. Existing review requests remain valid with no preference.
+
 ## Trusted Admin authentication
 
 The Admin sign-in entry uses the same Clerk session as other roles. There is no public Admin registration. A trusted, separately authenticated operator must provision `profiles.application_role = 'admin'` for a known Clerk subject through a server-side administrative procedure. Do not expose the Supabase secret key, an Admin-provisioning RPC, or role updates to Flutter. The current `GET /me` returns the authoritative role and the Flutter landing recognizes `admin`, but every future Admin API must verify the Clerk identity **and** query the current database role before any privileged operation. Use a strict server-side Admin dependency, audit the resolved subject, and return 403 for non-Admins. Treat self-supplied `assigned_by`, `verified_by`, and similar fields as untrusted.
@@ -21,12 +23,14 @@ The Admin sign-in entry uses the same Clerk session as other roles. There is no 
 | `POST /doctor/applications` | Patient account applies; persists pending only | Read the same record; do not create a second application table |
 | `GET/PUT /doctor/profile` | Doctor sees own record; credential edits return to pending | Review changed credentials before re-approval |
 | `GET /doctors` | Authenticated, sanitized verified profiles | Keep public display limited to verified records |
-| `review_requests` | Patient requests review for an owned saved screening | Pending assignment queue |
+| `review_requests` | Patient requests review for an owned saved screening; the proposed extension stores a preferred Doctor only after a new migration | Pending assignment queue; show preference alongside request |
 | `case_assignments` | Active assignment and revocation fields | Assign, reassign and revoke through trusted operations |
 | `doctor_reviews` | Assigned verified Doctor saves/submits structured review | Oversight metadata only; preserve clinical authorship |
 | `case_audit_events` | Case access audit records | Privacy-conscious activity view |
 
 Phase 3C already defines service-role-only `set_doctor_verification`, `assign_review_case`, and `revoke_review_assignment` functions. Inspect their signatures and transition rules before using them. The old operator scripts are for trusted development administration, not mobile endpoints. The Admin module must supply its own server-side authorization layer before invoking these functions. Reassignment should revoke the old active assignment and then assign an eligible verified Doctor in a controlled transaction; check the unique active-assignment constraint and review status. Case access is also enforced by RLS, so revocation and Doctor suspension immediately block future case reads. Review how credential edits returning to pending affect an existing assignment before approval.
+
+A Patient's preferred Doctor is a request hint. It never invokes `assign_review_case`, never marks a request `assigned`, and grants no case or image access. The Admin may select a different eligible Doctor through the trusted assignment flow; document that decision in the assignment audit trail. Do not expose the service role or administrative RPCs to the mobile client. The assigned Doctor, not the Admin, decides future private chat requests.
 
 ## Screens and workflows
 

@@ -96,8 +96,9 @@ Doctor loses access. Do not paste bearer tokens into reports.
 ## Verification status
 
 Local backend suite: 42 tests passed with mocked model inference. Flutter
-suite: 51 tests passed. Flutter static analysis reported no issues before the
-last copy edits and should be rerun for the final state. The 15 and 20 new SQL
+suite: 51 tests passed. Flutter static analysis reported no issues on the
+final code. The release APK built, and the existing real-checkpoint smoke
+test passed using synthetic input. The 15 and 20 new SQL
 assertions have **not** run against the remote database yet. The Android
 Patient-to-Doctor-to-messaging flow has **not** been observed end to end on a
 device. These features must not be described as production-ready until that

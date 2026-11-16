@@ -12,6 +12,7 @@ from app.api.routes import router
 from app.api.history_routes import router as history_router
 from app.api.case_routes import router as case_router
 from app.api.doctor_onboarding_routes import router as doctor_onboarding_router
+from app.api.message_routes import router as message_router
 from app.api.upload import RequestSizeLimitMiddleware
 from app.core.config import Settings
 from app.core.auth import ClerkTokenVerifier
@@ -74,6 +75,7 @@ def create_app(
     application.include_router(history_router)
     application.include_router(case_router)
     application.include_router(doctor_onboarding_router)
+    application.include_router(message_router)
     return application
 
 

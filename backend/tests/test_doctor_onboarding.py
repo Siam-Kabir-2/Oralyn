@@ -148,19 +148,20 @@ class DoctorOnboardingTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(result["display_name"], "Legacy Doctor")
             self.assertNotIn("directory_id", result)
 
-    async def test_preferred_review_uses_authorized_rpc_not_assignment(self):
+    async def test_patient_selection_uses_authorized_assignment_rpc(self):
         directory_id = "40000000-0000-4000-8000-000000000001"
         def handler(request):
             self.assertEqual(request.url.path,
-                             "/rest/v1/rpc/request_review_with_preference")
+                             "/rest/v1/rpc/request_and_assign_doctor")
             self.assertEqual(request.headers["authorization"], "Bearer synthetic")
             self.assertEqual(json.loads(request.read()), {
                 "p_screening_id": "screening-test",
                 "p_doctor_directory_id": directory_id,
             })
             return httpx.Response(200, json=[{
-                "id": "request-test", "status": "pending_assignment",
+                "id": "request-test", "status": "assigned",
                 "preferred_doctor_directory_id": directory_id,
+                "assignment_id": "assignment-test",
             }])
 
         settings = Settings(model_dir=Path("unused"),
@@ -171,7 +172,8 @@ class DoctorOnboardingTests(unittest.IsolatedAsyncioTestCase):
             repository = SupabaseRepository(settings, client=client)
             result = await repository.request_review(
                 "synthetic", "screening-test", directory_id)
-            self.assertEqual(result["status"], "pending_assignment")
+            self.assertEqual(result["status"], "assigned")
+            self.assertEqual(result["assignment_id"], "assignment-test")
 
     async def test_owned_request_preference_is_enriched_without_internal_id(self):
         directory_id = "40000000-0000-4000-8000-000000000001"

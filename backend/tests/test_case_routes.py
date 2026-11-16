@@ -43,6 +43,9 @@ class CaseRepository:
             raise PermissionError()
         if preferred_doctor_directory_id is not None:
             self.preferred_doctor_directory_id = preferred_doctor_directory_id
+            return self.requests.setdefault(
+                screening_id, {"id": str(uuid4()), "status": "assigned",
+                               "assignment_id": str(uuid4())})
         return self.requests.setdefault(
             screening_id, {"id": str(uuid4()), "status": "pending_assignment"}
         )
@@ -130,6 +133,7 @@ class CaseRoutesTests(unittest.IsolatedAsyncioTestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.repo.preferred_doctor_directory_id, directory_id)
+        self.assertEqual(response.json()["status"], "assigned")
         self.assertEqual((await self.call("POST", path, json={
             "consent_to_share": True,
             "preferred_doctor_directory_id": "user_not_a_uuid",

@@ -169,7 +169,7 @@ class SupabaseRepository:
     async def request_review(self, token: str, screening_id: str,
                              preferred_doctor_directory_id: str | None = None
                              ) -> dict[str, str]:
-        function = ("request_review_with_preference" if preferred_doctor_directory_id
+        function = ("request_and_assign_doctor" if preferred_doctor_directory_id
                     else "request_screening_review")
         payload = {"p_screening_id": screening_id}
         if preferred_doctor_directory_id:
@@ -249,6 +249,54 @@ class SupabaseRepository:
         if response.status_code != 200:
             raise PersistenceUnavailable("Could not load assigned cases")
         return response.json()
+
+    async def list_conversations(self, token: str) -> list[dict[str, Any]]:
+        response = await self._request(
+            "POST", f"{self.url}/rest/v1/rpc/my_case_conversations",
+            headers={**self._user_headers(token), "content-type": "application/json"},
+            json={},
+        )
+        if response.status_code != 200:
+            raise PersistenceUnavailable("Could not load conversations")
+        return response.json()
+
+    async def list_case_messages(
+        self, token: str, assignment_id: str, before_at: str | None,
+        before_id: str | None, limit: int,
+    ) -> list[dict[str, Any]]:
+        response = await self._request(
+            "POST", f"{self.url}/rest/v1/rpc/case_messages_page",
+            headers={**self._user_headers(token), "content-type": "application/json"},
+            json={"p_assignment_id": assignment_id,
+                  "p_before_created_at": before_at,
+                  "p_before_id": before_id, "p_limit": limit},
+        )
+        if response.status_code == 403:
+            raise PermissionError("Conversation is not available")
+        if response.status_code != 200:
+            raise PersistenceUnavailable("Could not load messages")
+        return response.json()
+
+    async def send_case_message(
+        self, token: str, assignment_id: str, client_message_id: str,
+        body: str,
+    ) -> dict[str, Any]:
+        response = await self._request(
+            "POST", f"{self.url}/rest/v1/rpc/send_case_message",
+            headers={**self._user_headers(token), "content-type": "application/json"},
+            json={"p_assignment_id": assignment_id,
+                  "p_client_message_id": client_message_id, "p_body": body},
+        )
+        if response.status_code == 403:
+            raise PermissionError("Conversation is not available")
+        if response.status_code == 409:
+            raise PersistenceConflict("Message retry conflicts with existing content")
+        if response.status_code != 200:
+            raise PersistenceUnavailable("Could not send message")
+        rows = response.json()
+        if not isinstance(rows, list) or len(rows) != 1:
+            raise PersistenceUnavailable("Message response was invalid")
+        return rows[0]
 
     async def get_doctor_review(
         self, token: str, assignment_id: str

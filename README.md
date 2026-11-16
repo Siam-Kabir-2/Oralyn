@@ -1,6 +1,6 @@
 # Oralyn
 
-Oralyn is a Flutter app and FastAPI service for AI-assisted oral image screening. It supports Clerk sign-in, private screening history, Patient review requests, and a verified Doctor case workflow backed by Supabase. Screening output is guidance for follow-up, not a diagnosis. Nearby-care listings remain demonstration data.
+Oralyn is a Flutter app and FastAPI service for AI-assisted oral image screening. It supports Clerk sign-in, private screening history, consented assignment to a verified Doctor, case reviews, and private case messages backed by Supabase. Screening output is guidance for follow-up, not a diagnosis. Nearby-care listings remain demonstration data.
 
 ## Repository
 
@@ -76,7 +76,7 @@ $env:ORALYN_MODEL_DIR = 'D:\oralyn-backend\models'
 Pop-Location
 ```
 
-The backend tests use synthetic images and mocked inference. The checkpoint smoke test needs the private model files. The database pgtap suite is in `supabase/tests/`; run it only against an authorized development project. The current development project passed all 13 Doctor onboarding and 26 Phase 3C SQL assertions after the Doctor migration. The full Android Patient-to-Doctor workflow still requires manual verification.
+The backend tests use synthetic images and mocked inference. The checkpoint smoke test needs the private model files. The database pgtap suite is in `supabase/tests/`; run it only against an authorized development project. The development project passed the existing 26 Phase 3C, 13 Doctor onboarding, and 14 Doctor preference SQL assertions. The newer direct-assignment and messaging migrations and their 15 and 20 assertions require a separate live verification. The full Android Patient-to-Doctor workflow still requires manual verification. See [the assignment and messaging release notes](docs/CASE_MESSAGING_AND_ASSIGNMENT.md).
 
 Build an Android APK with `flutter build apk --release`; Flutter writes it to `build/app/outputs/flutter-apk/app-release.apk`. The current development release uses an Android debug signing certificate and is not suitable for production distribution.
 

@@ -25,13 +25,14 @@ until the server confirms a verified Doctor role. Saved History refreshes
 without reopening the app. Sign-out returns to the Patient/Doctor/Admin
 choice screen.
 
-The application refinement build adds automatic private saving by explicit
-opt-in, a Doctor tab bar, Android back handling, and preferred-Doctor review
-selection. The preference flow requires the **new** local migration
-`supabase/migrations/202611160001_review_doctor_preference.sql`. It has not
-been applied to the development project. Do not run it without a separate
-review and approval. The older Phase 3C and Doctor onboarding migrations
-remain applied and must not be rerun.
+The Doctor preference migration was applied to this development project and
+its 14 rollback-only assertions passed. The current local code defaults to
+automatic private saving and offers immediate, consented assignment to a
+verified Doctor plus private case messages. Those features require **two new
+migrations** that have not yet been applied or tested remotely. See
+[the rollout notes](CASE_MESSAGING_AND_ASSIGNMENT.md) and do not run the new
+migrations without their separate approval. The older Phase 3C, Doctor
+onboarding, and Doctor preference migrations must not be rerun.
 
 ### Live Phase 3C verification record
 
@@ -308,26 +309,27 @@ has no clinical meaning.
 
 Sign in as Patient A and perform these steps:
 
-1. Tap **Start screening**, turn on **Save this screening privately**, then
-   select the generated PNG from Downloads. Leave the switch off to test an
-   unsaved screening.
+1. Tap **Start screening** and select the generated PNG from Downloads.
+   **Save this screening privately** is on by default; turn it off only when
+   deliberately testing an unsaved result.
 2. Continue through preview, quality and analysis.
 3. Expected: a real AI-assisted result appears with a primary class, score,
    existing guidance and Grad-CAM when available. The secondary model runs
    only for `OPMD` or `Oral_Cancer` primary output.
 4. Expected: saving runs automatically before the result appears; the result
    says **Saved to your private History**. If saving fails, the result remains
-   visible with **Retry saving**. An unsaved screening can still be saved
-   manually from its result screen.
+   visible with **Retry saving**. An unsaved screening can be saved manually,
+   or tapping **Send to a verified Doctor** saves it first before consent.
 5. Open **History**, then the saved record. Expected: original image, result
    and private visual explanation load.
-6. Tap **Request Doctor review** on the saved result or History detail. Choose
-   a live verified Doctor, read the sharing explanation, then tap
-   **I consent and request review**. A pending or suspended Doctor must not
+6. Tap **Send to a verified Doctor** on the result, or **Assign a verified
+   Doctor** in History detail. Choose a live verified Doctor, read the sharing
+   explanation, then tap **Consent and assign**. A pending or suspended Doctor must not
    be selectable; no dummy Doctor should appear on an API failure.
-7. Expected: status becomes **Pending assignment**, and the preferred Doctor
-   name appears on the request. This does not give the Doctor case access.
-   Reopening the record must show the same request rather than a duplicate.
+7. Expected: status becomes **Assigned to Doctor**, and the selected Doctor
+   receives case access immediately. Reopening the record must show the same
+   request rather than a duplicate. If the older pending preference is present,
+   tapping Assign again uses it and asks for explicit sharing consent.
 
 In Supabase SQL Editor, find the synthetic request without exposing image data:
 
@@ -338,25 +340,23 @@ where rr.patient_id = 'user_REPLACE_WITH_PATIENT_A_ID'
 order by rr.created_at desc;
 ```
 
-## 8. Assign, review, revoke and reassign
+## 8. Doctor review, messages, and revocation
 
-Assign the request to verified Doctor A. Replace both placeholders:
-
-```sql
-select public.assign_review_case(
-  'REPLACE_WITH_REVIEW_REQUEST_UUID'::uuid,
-  'user_REPLACE_WITH_DOCTOR_ID',
-  'phase4-manual-test'
-) as assignment_id;
-```
-
-Sign in as Doctor A. Expected: one assigned case appears. Open it and verify:
+Sign in as Doctor A and refresh Cases. Expected: the newly assigned case
+appears without an operator SQL assignment. Open it and verify:
 
 - the original private image loads;
 - the AI class, score breakdown and guidance match the saved Patient record;
 - secondary verification appears only when it was performed;
 - Grad-CAM is labelled as a visual explanation, not lesion segmentation;
 - no unrelated Patient record appears.
+
+Open **Messages** from the Doctor tab bar or the case detail. Send an obviously
+synthetic message such as `Synthetic case question`. Sign in as Patient A,
+open the saved History record, and reply with `Synthetic case reply`.
+Expected: each party sees the other's message after refresh or within the
+ten-second thread poll. Patient B and an unrelated Doctor cannot open the
+conversation or send a message.
 
 Enter obviously synthetic text, for example `Synthetic workflow observation`,
 `Synthetic workflow recommendation`, and `Synthetic follow-up only`. Tap
@@ -383,10 +383,12 @@ select public.revoke_review_assignment(
 ```
 
 Return to/reload the Doctor workspace. Expected: the case disappears. A stale
-open detail must fail on the next API/image/save request. The request returns
-to `pending_assignment`. Reassign it by running `assign_review_case` again;
-this returns a new assignment ID. Expected: Doctor A sees it again with a new,
-separate review form. The revoked draft is not silently transferred.
+open detail must fail on the next API/image/save request. The Doctor also loses
+message access. Patient A can read prior messages, but cannot send more on the
+revoked assignment. The request returns to `pending_assignment`. Patient A
+cannot undo operator revocation from the app. If testing another review, create
+a **new synthetic screening** and assign that to Doctor A; this gives a fresh
+assignment and review form. The revoked draft is not silently transferred.
 
 Complete the new review and tap **Submit review**. Expected: the backend
 confirms persistence, the form becomes read-only, and the case status is
@@ -440,12 +442,12 @@ the case workspace is restricted, and a trusted operator must verify the
 record again. Repeat the `set_doctor_verification` call above only after
 reviewing the changed test profile.
 
-On Patient A's saved screening, **Request chat · Coming Soon** must be
-disabled. In the Doctor workspace, **Messages · Coming Soon** shows no real
-chat requests or conversations; **Approve**, **Decline**, and **Send** are
-disabled. Structured Doctor feedback remains available through the existing
-review flow. Admin sign-in has no public registration or working Admin
-dashboard in this branch.
+Patient A's saved screening has **Open messages** after assignment. The
+Doctor workspace has a **Messages** tab. Both can send text on an active case;
+Doctor access stops on suspension or revocation. There is no message approval,
+push notification, attachment, or emergency response workflow. Structured
+Doctor feedback remains separate from chat. Admin sign-in has no public
+registration or working Admin dashboard in this branch.
 
 ## 10. Automated verification commands
 
@@ -491,18 +493,18 @@ section 1. Do not describe it as passed until its pgtap output is visible.
 ## Final manual checklist
 
 1. Confirm the selected Supabase project is development.
-2. Confirm both migrations are already applied to project `arokswvcjddbzwthtqkh`; do not rerun them.
-3. The 13 Doctor and 26 Phase 3C assertions have passed; rerun the rollback-only suites only if you need another check.
+2. Confirm Phase 3C, Doctor onboarding, and Doctor preference migrations are already applied; do not rerun them. Apply the two newer migrations only after their separate approval.
+3. Run the 15 assignment and 20 messaging assertions after the new migrations, then rerun the existing 14 preference, 26 Phase 3C, and 13 onboarding assertions. Record actual outcomes.
 4. Run the prerequisite checker and confirm every item is `OK`.
 5. Start FastAPI and keep the Quick Tunnel window open.
 6. Configure Android, connect the phone and run Oralyn with the tunnel URL.
 7. Create Patient A, Patient B and Doctor A synthetic Clerk accounts.
 8. Enroll Doctor A; confirm pending Doctors see no cases; then verify it.
 9. Generate the synthetic PNG; screen and save it as Patient A.
-10. Request review and confirm duplicate requests are prevented.
-11. Assign the request to Doctor A and confirm only that case is visible.
-12. Save a draft, revoke the assignment and confirm access disappears.
-13. Reassign, submit synthetic feedback and confirm the review is read-only.
+10. Select verified Doctor A, confirm sharing consent, and ensure a retry creates no duplicate request or assignment.
+11. Confirm Doctor A immediately sees only the assigned case; exchange synthetic messages with Patient A.
+12. Save a draft, revoke the assignment and confirm Doctor case/message access disappears.
+13. Use a fresh synthetic case to submit feedback and confirm the review is read-only.
 14. Confirm Patient A sees feedback separate from the AI result.
 15. Confirm Patient B sees none of Patient A's history or feedback.
 16. Suspend Doctor A and confirm case access is denied.

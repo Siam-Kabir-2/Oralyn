@@ -2,8 +2,9 @@
 
 This change remains on `feature/doctor-onboarding`. It preserves Clerk role
 verification, FastAPI screening inference, the `/predict` contract, model
-checkpoints, Grad-CAM, Supabase RLS and private Storage. No remote schema or
-production data was changed.
+checkpoints, Grad-CAM, Supabase RLS and private Storage. Only the approved
+Oralyn development project schema was changed; no other project or real
+patient data was changed.
 
 ## Confirmed causes and changes
 
@@ -13,33 +14,34 @@ production data was changed.
 | The result app-bar back button cleared the root stack. Signed-in auth routes also remained below the home route. | Result back now pops its route. Successful sign-in replaces auth routes with a role-resolving home route. | Back should return to the prior screen without reopening sign-in after login. Logout still clears protected routes. |
 | Doctor work was one long page with no persistent navigation. | Verified Doctors now have Dashboard, Cases, Reviews, Messages and Profile tabs. Cases and review groups use authenticated assigned-case data; profile and disabled messaging reuse existing screens. | Case details remain full screen. No fabricated counts, cases or messages were added. |
 | Saving was a separate action after a successful result. | Preparation offers an explicit private-save choice. When selected, analysis saves automatically before showing the result. The result shows confirmed saved or failed state and retains the same idempotency key for retry. | The current backend re-runs model inference during `/screenings` save; it does not accept client-created predictions. The result remains visible on save failure. |
-| Review selection used illustrative care content, while Find Care used verified backend profiles. | The result and saved-history actions now open the verified Doctor directory. The review path sends an opaque public Doctor UUID and displays the request as pending assignment. The separate care-location demo is explicitly labeled. | The preferred Doctor is a request hint. Only a trusted Admin assignment grants case access. The new migration is required before this can work live. |
+| Review selection used illustrative care content, while Find Care used verified backend profiles. | The result and saved-history actions now open the verified Doctor directory. The review path sends an opaque public Doctor UUID and displays the request as pending assignment. The separate care-location demo is explicitly labeled. | The preferred Doctor is a request hint. Only a trusted Admin assignment grants case access. The migration is applied, but the live mobile flow still needs testing. |
 
-## Database change awaiting approval
+## Development database migration
 
-`supabase/migrations/202611160001_review_doctor_preference.sql` is prepared but
-**not applied** to Supabase project `arokswvcjddbzwthtqkh`. It adds a public
+The owner ran `supabase/migrations/202611160001_review_doctor_preference.sql`
+in Supabase development project `arokswvcjddbzwthtqkh` on 2026-11-16. The SQL
+Editor reported `Success. No rows returned`. It adds a public
 opaque UUID to Doctor profiles, a nullable UUID preference on review
 requests and an authenticated RPC. The RPC checks the current Clerk subject,
 saved-screening ownership, Patient role and Doctor verification, and rejects a
 different preference on an existing request. It never creates an assignment.
 The existing legacy review RPC remains available for old clients.
 
-Before applying it, confirm the project reference, retain an export of the
-disposable development schema/data if needed, and review the SQL. The file is
-transaction-wrapped, so a failed statement rolls back. Once committed, there
-is no automatic down migration; restoring a backup or a reviewed forward fix
-would be required. After separate approval, run the migration in that one
-development project and then run
-`supabase/tests/review_doctor_preference_checks.sql`. Its 14 pgtap assertions
-are transaction-wrapped and leave no test records when rolled back. Re-run the
-existing 26 Phase 3C and 13 Doctor onboarding assertions after migration.
+The file is transaction-wrapped, so a failed statement would have rolled
+back. Once committed, there is no automatic down migration; restoring a backup
+or a reviewed forward fix would be required. The first 14-assertion run stopped
+at a synthetic fixture that violated the pre-existing 16-character minimum
+for screening idempotency keys. That test transaction rolled back. The fixture
+has been corrected. The 14, 26 Phase 3C and 13 Doctor onboarding suites now
+use `finish(true)` so assertion failures surface as SQL errors; each suite
+ends with `rollback;`. The owner then ran all three updated suites in separate
+SQL Editor queries and reported that all three showed passed results. The
+individual TAP rows were not exported for independent review. A read-only
+follow-up query returned `rpc_present=true`, `test_profiles_left=0` and
+`test_screenings_left=0` for the new suite's synthetic fixture IDs.
 
-Until that migration is applied, `/doctors` can still display the legacy
-sanitized directory, but it supplies no selectable Doctor identifier. The
-picker reports that selection is unavailable; it never substitutes demo data.
-Restart the FastAPI process after applying the migration to use the updated
-backend code. A running Uvicorn process without reload serves the old code.
+Restart the FastAPI process to use the updated backend code. A running Uvicorn
+process without reload serves the old code.
 
 ## Verification
 
@@ -53,9 +55,12 @@ backend code. A running Uvicorn process without reload serves the old code.
   Supabase responses. The real-checkpoint synthetic-image smoke test passed:
   invalid-image rejection, Grad-CAM availability/failure tolerance and
   conditional verification were observed.
-- The new SQL suite and real Android back gestures have **not** run. The live
-  Patient → preference → Admin assignment → Doctor review → feedback path
-  remains unverified until the migration and device checks complete.
+- The new SQL suite initially stopped at a fixture error and rolled back.
+  After correction, the owner reported that the 14, 26 and 13 assertion suites
+  all passed with `finish(true)`. This is owner-observed SQL Editor evidence;
+  individual TAP rows were not independently captured. Real Android back
+  gestures and the Patient → preference → Admin assignment → Doctor review →
+  feedback path remain unverified.
 - Release APK built at
   `D:\System Project\build\app\outputs\flutter-apk\app-release.apk` on
   2026-11-16. SHA-256:

@@ -62,5 +62,6 @@ select ok((select verified_at is null and verified_by is null
   from public.doctor_profiles where clerk_user_id = 'user_onboardtest'),
   'credential edit clears prior verification metadata');
 
-select * from finish();
+select * from finish(true);
+select '13 pgTAP assertions passed' as test_result;
 rollback;

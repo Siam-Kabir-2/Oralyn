@@ -19,8 +19,8 @@ insert into public.doctor_profiles(
   ('user_prefdoctorc', 'Synthetic Doctor C', 'Oral medicine',
    'Synthetic degree', 'TEST-PREF-C', 'pending', null, null);
 insert into public.screenings(id, patient_id, idempotency_key) values
-  ('40000000-0000-4000-8000-000000000001', 'user_prefpatienta', 'pref-owner-one'),
-  ('40000000-0000-4000-8000-000000000002', 'user_prefpatienta', 'pref-owner-two');
+  ('40000000-0000-4000-8000-000000000001', 'user_prefpatienta', 'pref-owner-one-0001'),
+  ('40000000-0000-4000-8000-000000000002', 'user_prefpatienta', 'pref-owner-two-0002');
 
 select has_column('public', 'doctor_profiles', 'directory_id',
   'Doctor directory has an opaque public identifier');
@@ -93,5 +93,6 @@ select throws_ok($$select * from public.request_review_with_preference(
   current_setting('test.doctor_a')::uuid)$$,
   '42501', null, 'suspended Doctor is ineligible');
 
-select * from finish();
+select * from finish(true);
+select '14 pgTAP assertions passed' as test_result;
 rollback;

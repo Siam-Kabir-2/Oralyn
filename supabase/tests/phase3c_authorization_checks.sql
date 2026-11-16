@@ -153,5 +153,6 @@ select is_empty(
   $$select name from storage.objects where bucket_id = 'screening-images'$$,
   'revoked Doctor loses private Storage access');
 
-select * from finish();
+select * from finish(true);
+select '26 pgTAP assertions passed' as test_result;
 rollback;

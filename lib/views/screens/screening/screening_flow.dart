@@ -26,7 +26,7 @@ class ScreeningPreparationScreen extends StatefulWidget {
 
 class _ScreeningPreparationScreenState
     extends State<ScreeningPreparationScreen> {
-  bool saveToHistory = false;
+  bool saveToHistory = true;
 
   static const _instructions = [
     (
@@ -92,9 +92,9 @@ class _ScreeningPreparationScreenState
                 SwitchListTile.adaptive(
                   value: saveToHistory,
                   onChanged: (value) => setState(() => saveToHistory = value),
-                  title: const Text('Save this screening privately'),
+                  title: const Text('Save screening automatically'),
                   subtitle: const Text(
-                      'When on, the image and AI result are stored in your private History after analysis. You can leave this off for an unsaved screening.'),
+                      'On by default. Your image and AI result appear in private History after analysis. Turn off to keep this screening unsaved.'),
                 ),
               ],
             )),
@@ -220,7 +220,7 @@ class _PrivacyNote extends StatelessWidget {
 }
 
 class CaptureScreen extends StatefulWidget {
-  const CaptureScreen({super.key, this.saveToHistory = false});
+  const CaptureScreen({super.key, this.saveToHistory = true});
   final bool saveToHistory;
   @override
   State<CaptureScreen> createState() => _CaptureScreenState();
@@ -622,7 +622,7 @@ class _QualityCheckScreenState extends State<QualityCheckScreen> {
                         ready
                             ? (warning
                                 ? 'The file is small, which can reduce visible detail. You can retake it or continue with screening.'
-                                : 'The photo passed this prototype’s lightweight quality checks.')
+                                : 'The photo passed basic file checks. The screening model will review visible details after upload.')
                             : 'Reviewing visible detail before analysis.',
                         style: Theme.of(context)
                             .textTheme

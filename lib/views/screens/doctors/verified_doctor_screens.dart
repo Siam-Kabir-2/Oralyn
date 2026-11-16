@@ -40,8 +40,8 @@ class _VerifiedDoctorDirectoryState extends State<VerifiedDoctorDirectory> {
               style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 8),
           Text(widget.selecting
-              ? 'Choose a verified Doctor to prefer for this review request. Assignment is confirmed separately.'
-              : 'Verified Oralyn Doctor profiles. Review requests are made from your saved screening.'),
+              ? 'Choose a verified Doctor to receive this case after you confirm sharing.'
+              : 'Verified Oralyn Doctor profiles. Choose a Doctor from your screening result or History to share a case.'),
           const SizedBox(height: 18),
           TextField(
             controller: search,
@@ -149,7 +149,7 @@ class VerifiedDoctorDetail extends StatelessWidget {
                   title: Text(entry.$1), subtitle: Text(entry.$2 as String)),
           const SizedBox(height: 18),
           const Text(
-              'To request a professional review, open a saved screening in History. Case assignment is managed separately.'),
+              'To share a case, open a screening result or a saved screening in History and select this verified Doctor.'),
         ]),
       );
 }

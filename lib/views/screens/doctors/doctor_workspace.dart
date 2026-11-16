@@ -7,8 +7,44 @@ import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../services/doctor_case_service.dart';
 import '../../../services/screening_history_service.dart';
+import '../../../services/case_message_service.dart';
 import '../home/main_shell.dart';
+import '../messages/case_chat_screen.dart';
 import 'doctor_account_screens.dart';
+
+String _caseCode(Object? screeningId) {
+  final value = screeningId is String ? screeningId : '';
+  final prefix = value.length >= 8 ? value.substring(0, 8) : value;
+  return prefix.isEmpty ? 'New case' : 'OR-${prefix.toUpperCase()}';
+}
+
+String _caseDate(Object? timestamp) {
+  final date = DateTime.tryParse('$timestamp')?.toLocal();
+  if (date == null) return 'Recently';
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec'
+  ];
+  return '${date.day} ${months[date.month - 1]} ${date.year}';
+}
+
+String _caseStatus(Object? status) => switch (status) {
+      'assigned' => 'Awaiting review',
+      'in_review' => 'In progress',
+      'reviewed' => 'Review submitted',
+      'closed' => 'Closed',
+      _ => 'Assigned case',
+    };
 
 class RoleHomeScreen extends StatefulWidget {
   const RoleHomeScreen({super.key, this.caseService, this.preferredRole});
@@ -227,23 +263,32 @@ class _RoleConnectionScreen extends StatelessWidget {
 }
 
 class DoctorWorkspace extends StatefulWidget {
-  const DoctorWorkspace({super.key, required this.profile, this.caseService});
+  const DoctorWorkspace({
+    super.key,
+    required this.profile,
+    this.caseService,
+    this.messageService,
+  });
   final Map<String, dynamic> profile;
   final DoctorCaseService? caseService;
+  final CaseMessageService? messageService;
   @override
   State<DoctorWorkspace> createState() => _DoctorWorkspaceState();
 }
 
 class _DoctorWorkspaceState extends State<DoctorWorkspace> {
   late final service = widget.caseService ?? DoctorCaseService();
+  late final messageService = widget.messageService ?? CaseMessageService();
   late Future<List<Map<String, dynamic>>> cases = service.cases();
   String filter = 'All';
   int tab = 0;
+  CaseConversation? selectedConversation;
 
   void refreshCases() => setState(() => cases = service.cases());
   @override
   void dispose() {
     if (widget.caseService == null) service.close();
+    if (widget.messageService == null) messageService.close();
     super.dispose();
   }
 
@@ -252,19 +297,34 @@ class _DoctorWorkspaceState extends State<DoctorWorkspace> {
     final doctor = widget.profile['doctor_profiles'] as Map<String, dynamic>?;
     final verified = doctor?['verification_state'] == 'verified';
     return PopScope(
-      canPop: tab == 0,
+      canPop: tab == 0 && selectedConversation == null,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && tab != 0) setState(() => tab = 0);
+        if (didPop) return;
+        if (selectedConversation != null) {
+          setState(() => selectedConversation = null);
+        } else if (tab != 0) {
+          setState(() => tab = 0);
+        }
       },
       child: Scaffold(
         appBar: AppBar(
-            title: Text(const [
-              'Doctor workspace',
-              'Assigned cases',
-              'Reviews',
-              'Messages',
-              'My profile'
-            ][tab]),
+            leading: selectedConversation == null
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    tooltip: 'Back to conversations',
+                    onPressed: () =>
+                        setState(() => selectedConversation = null),
+                  ),
+            title: Text(selectedConversation != null
+                ? 'Case messages'
+                : const [
+                    'Doctor workspace',
+                    'Assigned cases',
+                    'Reviews',
+                    'Messages',
+                    'My profile'
+                  ][tab]),
             actions: [
               IconButton(
                   tooltip: 'Screening server',
@@ -377,7 +437,7 @@ class _DoctorWorkspaceState extends State<DoctorWorkspace> {
                   Expanded(
                     child: _WorkspaceAction(
                       icon: Icons.chat_bubble_outline,
-                      label: 'Messages · Coming Soon',
+                      label: 'Case messages',
                       color: AppColors.peachSoft,
                       onTap: () => Navigator.pushNamed(
                           context, AppRoutes.doctorMessages),
@@ -483,11 +543,11 @@ class _DoctorWorkspaceState extends State<DoctorWorkspace> {
                                           color: AppColors.teal),
                                     ),
                                     title: Text(
-                                        'Case ${request['screening_id']}',
+                                        'Case ${_caseCode(request['screening_id'])}',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis),
                                     subtitle: Text(
-                                        '${(request['status'] as String).replaceAll('_', ' ')} · Assigned ${caseRow['assigned_at'] ?? 'recently'}'),
+                                        '${_caseStatus(request['status'])} · ${_caseDate(caseRow['assigned_at'])}'),
                                     trailing:
                                         const Icon(Icons.chevron_right_rounded),
                                     onTap: () async {
@@ -526,7 +586,20 @@ class _DoctorWorkspaceState extends State<DoctorWorkspace> {
           else
             const SizedBox(),
           if (tab == 3)
-            const DoctorMessagesScreen(embedded: true)
+            selectedConversation == null
+                ? DoctorMessagesScreen(
+                    embedded: true,
+                    service: messageService,
+                    onOpen: (conversation) =>
+                        setState(() => selectedConversation = conversation),
+                  )
+                : CaseThreadScreen(
+                    conversation: selectedConversation!,
+                    isDoctor: true,
+                    embedded: true,
+                    service: messageService,
+                    onBack: () => setState(() => selectedConversation = null),
+                  )
           else
             const SizedBox(),
           if (tab == 4)
@@ -536,7 +609,11 @@ class _DoctorWorkspaceState extends State<DoctorWorkspace> {
         ]),
         bottomNavigationBar: NavigationBar(
           selectedIndex: tab,
-          onDestinationSelected: (value) => setState(() => tab = value),
+          onDestinationSelected: (value) => setState(() {
+            if (value != 3) selectedConversation = null;
+            if (value == 1 || value == 2) cases = service.cases();
+            tab = value;
+          }),
           destinations: const [
             NavigationDestination(
                 icon: Icon(Icons.dashboard_outlined),
@@ -593,19 +670,11 @@ class _DoctorCaseQueueState extends State<_DoctorCaseQueue> {
   Widget _caseCard(Map<String, dynamic> row) {
     final request = row['review_requests'] as Map<String, dynamic>? ?? {};
     final id = row['id'] as String?;
-    final screening = request['screening_id'] as String? ?? 'Screening';
-    final state =
-        (request['status'] as String? ?? 'assigned').replaceAll('_', ' ');
+    final code = _caseCode(request['screening_id']);
+    final state = _caseStatus(request['status']);
     return Card(
-      child: ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: AppColors.successSoft,
-          child: Icon(Icons.assignment_outlined, color: AppColors.teal),
-        ),
-        title: Text('Case $screening',
-            maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text('$state · Assigned ${row['assigned_at'] ?? 'recently'}'),
-        trailing: const Icon(Icons.chevron_right_rounded),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
         onTap: id == null
             ? null
             : () async {
@@ -616,6 +685,44 @@ class _DoctorCaseQueueState extends State<_DoctorCaseQueue> {
                     ));
                 if (mounted) widget.onRefresh();
               },
+        child: Padding(
+          padding: const EdgeInsets.all(17),
+          child: Row(children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.successSoft,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: const Icon(Icons.folder_shared_outlined,
+                  color: AppColors.teal),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+                child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Case $code',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 5),
+                Text(state,
+                    style: const TextStyle(
+                        color: AppColors.teal,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700)),
+                const SizedBox(height: 3),
+                Text('Assigned ${_caseDate(row['assigned_at'])}',
+                    style: const TextStyle(
+                        color: AppColors.secondaryText, fontSize: 12)),
+              ],
+            )),
+            const Icon(Icons.chevron_right_rounded,
+                color: AppColors.secondaryText),
+          ]),
+        ),
       ),
     );
   }
@@ -637,7 +744,7 @@ class _DoctorCaseQueueState extends State<_DoctorCaseQueue> {
                 controller: search,
                 onChanged: (_) => setState(() {}),
                 decoration: const InputDecoration(
-                  hintText: 'Search screening ID',
+                  hintText: 'Search case code',
                   prefixIcon: Icon(Icons.search_rounded),
                 ),
               ),
@@ -907,6 +1014,7 @@ class DoctorCaseScreen extends StatefulWidget {
 
 class _DoctorCaseScreenState extends State<DoctorCaseScreen> {
   final service = DoctorCaseService();
+  final messageService = CaseMessageService();
   final assets = ScreeningHistoryApiRepository();
   late Future<Map<String, dynamic>> detail =
       service.detail(widget.assignmentId);
@@ -960,6 +1068,7 @@ class _DoctorCaseScreenState extends State<DoctorCaseScreen> {
   @override
   void dispose() {
     service.close();
+    messageService.close();
     assets.close();
     observations.dispose();
     recommendations.dispose();
@@ -1001,6 +1110,32 @@ class _DoctorCaseScreenState extends State<DoctorCaseScreen> {
     }
   }
 
+  Future<void> _openMessages() async {
+    try {
+      final conversations = await messageService.conversations();
+      if (!mounted) return;
+      for (final conversation in conversations) {
+        if (conversation.assignmentId == widget.assignmentId) {
+          await Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => CaseThreadScreen(
+                    conversation: conversation, isDoctor: true),
+              ));
+          return;
+        }
+      }
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('This case conversation is no longer available.'),
+      ));
+    } on CaseMessageException catch (failure) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(failure.message)),
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) => PopScope(
       canPop: !dirty || submitted,
@@ -1031,66 +1166,199 @@ class _DoctorCaseScreenState extends State<DoctorCaseScreen> {
                 hydrated = true;
               }
               submitted = submitted || review?['state'] == 'submitted';
-              return ListView(padding: const EdgeInsets.all(22), children: [
-                Text('AI assisted screening',
-                    style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 8),
-                Text('Category: ${screening['primary_prediction']}'),
-                Text('Model score: ${screening['primary_score']}'),
-                Text('Guidance: ${screening['screening_status']}'),
-                const SizedBox(height: 8),
-                for (final score
-                    in (screening['primary_predictions'] as List? ?? const []))
-                  if (score is Map)
-                    Text(
-                        '${score['class'] ?? score['label'] ?? 'Class'}: ${score['score'] ?? score['confidence'] ?? ''}'),
-                if ((screening['cancer_verification'] as Map?)?['performed'] ==
-                    true)
+              final score = screening['primary_score'];
+              final scoreLabel = score is num
+                  ? '${(score * 100).toStringAsFixed(0)}% model score'
+                  : 'Model score unavailable';
+              final category = '${screening['primary_prediction'] ?? 'Unknown'}'
+                  .replaceAll('_', ' ');
+              final gradcam = screening['gradcam'] as Map? ?? const {};
+              final verification =
+                  screening['cancer_verification'] as Map? ?? const {};
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 34),
+                children: [
+                  Text('ASSIGNED CASE',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppColors.teal,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.4)),
+                  const SizedBox(height: 5),
+                  Text('Case ${_caseCode(screening['id'])}',
+                      style: Theme.of(context).textTheme.headlineMedium),
+                  const SizedBox(height: 6),
                   Text(
-                      'Secondary verification: ${screening['cancer_verification']}'),
-                const SizedBox(height: 12),
-                const Text('Original oral image'),
-                _CaseImage(
-                    path: screening['image_path'] as String?, assets: assets),
-                const SizedBox(height: 12),
-                const Text(
-                    'Grad-CAM visual explanation (not lesion segmentation)'),
-                _CaseImage(
-                    path: (screening['gradcam']
-                        as Map<String, dynamic>)['asset_path'] as String?,
-                    assets: assets),
-                const SizedBox(height: 24),
-                Text('Professional review',
-                    style: Theme.of(context).textTheme.titleLarge),
-                for (final field in [
-                  (observations, 'Clinical observations'),
-                  (recommendations, 'Recommendations'),
-                  (followUp, 'Suggested follow up'),
-                ])
-                  Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: TextField(
-                        controller: field.$1,
-                        enabled: !submitted,
-                        maxLines: 4,
-                        maxLength:
-                            field.$2 == 'Suggested follow up' ? 2000 : 4000,
-                        decoration: InputDecoration(
-                            labelText: field.$2,
-                            border: const OutlineInputBorder()),
-                      )),
-                if (error != null)
-                  Text(error!, style: const TextStyle(color: AppColors.danger)),
-                if (!submitted) ...[
-                  OutlinedButton(
-                      onPressed: saving ? null : () => _save(false),
-                      child: const Text('Save draft')),
-                  FilledButton(
-                      onPressed: saving ? null : () => _save(true),
-                      child: const Text('Submit review')),
-                ] else
-                  const Text('Submitted review is read only.'),
-              ]);
+                      'Assigned for professional review · '
+                      '${_caseDate(screening['created_at'])}',
+                      style: const TextStyle(color: AppColors.secondaryText)),
+                  const SizedBox(height: 18),
+                  Card(
+                      child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          const Icon(Icons.auto_awesome_rounded,
+                              color: AppColors.teal, size: 20),
+                          const SizedBox(width: 9),
+                          Expanded(
+                              child: Text('AI screening summary',
+                                  style:
+                                      Theme.of(context).textTheme.titleLarge)),
+                        ]),
+                        const SizedBox(height: 16),
+                        Text(
+                            '${screening['screening_status'] ?? 'Screening guidance unavailable'}',
+                            style: Theme.of(context).textTheme.titleMedium),
+                        const SizedBox(height: 5),
+                        Text('$category · $scoreLabel',
+                            style: const TextStyle(
+                                color: AppColors.secondaryText)),
+                        const SizedBox(height: 13),
+                        const Text(
+                            'AI output supports review; it is not a diagnosis.',
+                            style: TextStyle(
+                                fontSize: 12, color: AppColors.secondaryText)),
+                        if ((screening['primary_predictions'] as List? ??
+                                    const [])
+                                .isNotEmpty ||
+                            verification['performed'] == true)
+                          ExpansionTile(
+                            tilePadding: EdgeInsets.zero,
+                            title: const Text('Model details'),
+                            children: [
+                              for (final item
+                                  in (screening['primary_predictions']
+                                          as List? ??
+                                      const []))
+                                if (item is Map)
+                                  ListTile(
+                                    dense: true,
+                                    title: Text(
+                                        '${item['class'] ?? item['label'] ?? 'Class'}'
+                                            .replaceAll('_', ' ')),
+                                    trailing: Text(
+                                        '${item['score'] ?? item['confidence'] ?? ''}'),
+                                  ),
+                              if (verification['performed'] == true)
+                                const ListTile(
+                                  dense: true,
+                                  title: Text('Secondary model'),
+                                  trailing: Text('Completed'),
+                                ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  )),
+                  const SizedBox(height: 16),
+                  Text('Case images',
+                      style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 10),
+                  Card(
+                      child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Original oral image',
+                            style: Theme.of(context).textTheme.titleMedium),
+                        const SizedBox(height: 12),
+                        _CaseImage(
+                            path: screening['image_path'] as String?,
+                            assets: assets),
+                      ],
+                    ),
+                  )),
+                  const SizedBox(height: 12),
+                  Card(
+                      child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Visual explanation',
+                            style: Theme.of(context).textTheme.titleMedium),
+                        const SizedBox(height: 4),
+                        const Text(
+                            'Grad-CAM highlights model attention, not lesion boundaries.',
+                            style: TextStyle(
+                                color: AppColors.secondaryText, fontSize: 12)),
+                        const SizedBox(height: 12),
+                        _CaseImage(
+                            path: gradcam['asset_path'] as String?,
+                            assets: assets),
+                      ],
+                    ),
+                  )),
+                  const SizedBox(height: 18),
+                  OutlinedButton.icon(
+                    onPressed: _openMessages,
+                    icon: const Icon(Icons.chat_bubble_outline),
+                    label: const Text('Message Patient about this case'),
+                  ),
+                  const SizedBox(height: 22),
+                  Text('Professional review',
+                      style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 5),
+                  const Text('Your draft is private until you submit it.',
+                      style: TextStyle(color: AppColors.secondaryText)),
+                  const SizedBox(height: 12),
+                  Card(
+                      child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(children: [
+                      for (final field in [
+                        (observations, 'Clinical observations'),
+                        (recommendations, 'Recommendations'),
+                        (followUp, 'Suggested follow up'),
+                      ])
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: TextField(
+                            controller: field.$1,
+                            enabled: !submitted,
+                            maxLines: 4,
+                            maxLength:
+                                field.$2 == 'Suggested follow up' ? 2000 : 4000,
+                            decoration: InputDecoration(labelText: field.$2),
+                          ),
+                        ),
+                      if (error != null)
+                        Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Text(error!,
+                                style:
+                                    const TextStyle(color: AppColors.danger))),
+                      if (!submitted) ...[
+                        SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: saving ? null : () => _save(false),
+                              icon: const Icon(Icons.save_outlined),
+                              label: const Text('Save draft'),
+                            )),
+                        const SizedBox(height: 9),
+                        SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: saving ? null : () => _save(true),
+                              icon: const Icon(Icons.task_alt_rounded),
+                              label: Text(
+                                  saving ? 'Saving review…' : 'Submit review'),
+                            )),
+                      ] else
+                        const Row(children: [
+                          Icon(Icons.check_circle_outline,
+                              color: AppColors.teal),
+                          SizedBox(width: 9),
+                          Expanded(child: Text('Review submitted · Read only')),
+                        ]),
+                    ]),
+                  )),
+                ],
+              );
             }),
       ));
 }

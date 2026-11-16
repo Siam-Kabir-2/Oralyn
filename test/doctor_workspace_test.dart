@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:oralyn/services/doctor_case_service.dart';
+import 'package:oralyn/services/case_message_service.dart';
 import 'package:oralyn/views/screens/doctors/doctor_workspace.dart';
 
 void main() {
@@ -170,9 +171,19 @@ void main() {
       predictionEndpoint: Uri.parse('https://example.test/predict'),
       tokenProvider: () async => 'synthetic-session',
     );
+    final messageService = CaseMessageService(
+      client: MockClient((request) async {
+        expect(request.url.path, '/conversations');
+        return http.Response('{"items":[]}', 200,
+            headers: {'content-type': 'application/json'});
+      }),
+      predictionEndpoint: Uri.parse('https://example.test/predict'),
+      tokenProvider: () async => 'synthetic-session',
+    );
     await tester.pumpWidget(MaterialApp(
       home: DoctorWorkspace(
         caseService: service,
+        messageService: messageService,
         profile: const {
           'application_role': 'doctor',
           'doctor_profiles': {
@@ -185,7 +196,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cases'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Case screening-1'), findsOneWidget);
+    expect(find.textContaining('Case OR-SCREENIN'), findsOneWidget);
     expect(find.text('Assigned cases'), findsWidgets);
     await tester.tap(find.widgetWithText(ChoiceChip, 'in review'));
     await tester.pumpAndSettle();
@@ -197,5 +208,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Doctor workspace'), findsOneWidget);
     service.close();
+    messageService.close();
   });
 }

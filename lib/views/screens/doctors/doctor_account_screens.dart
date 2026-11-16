@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../services/doctor_case_service.dart';
+import '../../../services/case_message_service.dart';
+import '../messages/case_chat_screen.dart';
 
 class DoctorApplicationScreen extends StatefulWidget {
   const DoctorApplicationScreen({super.key});
@@ -339,51 +341,21 @@ class _DoctorDetailsFormState extends State<DoctorDetailsForm> {
 }
 
 class DoctorMessagesScreen extends StatelessWidget {
-  const DoctorMessagesScreen({super.key, this.embedded = false});
+  const DoctorMessagesScreen({
+    super.key,
+    this.embedded = false,
+    this.onOpen,
+    this.service,
+  });
   final bool embedded;
+  final ValueChanged<CaseConversation>? onOpen;
+  final CaseMessageService? service;
 
   @override
-  Widget build(BuildContext context) {
-    final content = ListView(padding: const EdgeInsets.all(22), children: [
-      Text('Patient conversations',
-          style: Theme.of(context).textTheme.headlineMedium),
-      const SizedBox(height: 10),
-      const Text(
-          'Coming Soon · Messaging is not available yet. A structured case review does not open a conversation.'),
-      const SizedBox(height: 24),
-      for (final title in [
-        'Chat requests',
-        'Active conversations',
-        'Closed conversations'
-      ])
-        Card(
-            child: ListTile(
-                title: Text(title),
-                subtitle:
-                    const Text('No conversations available in this version.'),
-                leading: const Icon(Icons.lock_outline))),
-      const SizedBox(height: 12),
-      const Text(
-          'Future request decisions require an assigned case and an authorized Doctor. No request can be approved in this version.'),
-      const SizedBox(height: 8),
-      const Wrap(spacing: 10, children: [
-        OutlinedButton(onPressed: null, child: Text('Approve · Coming Soon')),
-        OutlinedButton(onPressed: null, child: Text('Decline · Coming Soon')),
-      ]),
-      const SizedBox(height: 22),
-      const Text('Conversation unavailable · No approved chat request'),
-      const SizedBox(height: 8),
-      const TextField(
-          enabled: false,
-          decoration: InputDecoration(
-              labelText: 'Message composer',
-              hintText: 'Available only for approved conversations')),
-      const SizedBox(height: 8),
-      const FilledButton(onPressed: null, child: Text('Send')),
-    ]);
-    return embedded
-        ? content
-        : Scaffold(
-            appBar: AppBar(title: const Text('Messages')), body: content);
-  }
+  Widget build(BuildContext context) => CaseConversationsScreen(
+        isDoctor: true,
+        embedded: embedded,
+        onOpen: onOpen,
+    service: service,
+      );
 }

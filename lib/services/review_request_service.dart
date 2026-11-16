@@ -11,11 +11,13 @@ class ReviewRequestStatus {
       {required this.id,
       required this.screeningId,
       required this.status,
+      this.assignmentId,
       this.preferredDoctorDirectoryId,
       this.preferredDoctorName});
   final String id;
   final String screeningId;
   final String status;
+  final String? assignmentId;
   final String? preferredDoctorDirectoryId;
   final String? preferredDoctorName;
 
@@ -30,6 +32,7 @@ class ReviewRequestStatus {
       id: id,
       screeningId: screeningId is String ? screeningId : '',
       status: status,
+      assignmentId: json['assignment_id'] as String?,
       preferredDoctorDirectoryId:
           json['preferred_doctor_directory_id'] as String?,
       preferredDoctorName: json['preferred_doctor_name'] as String?,

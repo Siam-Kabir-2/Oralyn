@@ -10,6 +10,7 @@ import 'package:oralyn/models/screening_session.dart';
 import 'package:oralyn/services/screening_api_service.dart';
 import 'package:oralyn/services/screening_history_service.dart';
 import 'package:oralyn/views/screens/screening/screening_flow.dart';
+import 'package:oralyn/views/screens/result/result_screens.dart';
 
 class _Analysis implements ScreeningAnalysisService {
   int calls = 0;
@@ -49,6 +50,18 @@ class _History implements ScreeningHistoryRepository {
 }
 
 void main() {
+  testWidgets('new screenings default to private automatic saving',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: ScreeningPreparationScreen(),
+    ));
+    await tester.scrollUntilVisible(
+        find.text('Save screening automatically'), 200);
+    final saveSwitch =
+        tester.widget<SwitchListTile>(find.byType(SwitchListTile));
+    expect(saveSwitch.value, isTrue);
+  });
+
   Future<ScreeningOutcome> runFlow(WidgetTester tester,
       {required bool optIn,
       bool fail = false,
@@ -115,5 +128,32 @@ void main() {
     final outcome = await runFlow(tester, optIn: true, ownerChanges: true);
     expect(outcome.savedScreeningId, isNull);
     expect(outcome.saveError, contains('account changed'));
+  });
+
+  testWidgets('unsaved result can enter Doctor flow without a save tap',
+      (tester) async {
+    final history = _History();
+    final photo = ScreeningPhoto(
+      bytes: base64Decode(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC'),
+      name: 'synthetic.png',
+      fromCamera: false,
+      saveToHistory: false,
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: ResultScreen(
+        outcome: ScreeningOutcome(result: MockData.results.first, photo: photo),
+        historyRepository: history,
+      ),
+      onGenerateRoute: (_) => MaterialPageRoute<void>(
+        builder: (_) => const Scaffold(body: Text('Doctor flow opened')),
+      ),
+    ));
+    await tester.scrollUntilVisible(
+        find.text('Send to a verified Doctor'), 200);
+    await tester.tap(find.text('Send to a verified Doctor'));
+    await tester.pumpAndSettle();
+    expect(history.saves, 1);
+    expect(find.text('Doctor flow opened'), findsOneWidget);
   });
 }

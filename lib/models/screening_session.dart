@@ -12,7 +12,7 @@ class ScreeningPhoto {
     required this.name,
     required this.fromCamera,
     this.qualityWarning = false,
-    this.saveToHistory = false,
+    this.saveToHistory = true,
   });
 
   final Uint8List bytes;

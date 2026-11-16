@@ -10,7 +10,9 @@ import '../../../models/screening_result.dart';
 import '../../../services/screening_history_service.dart';
 import '../../../services/screening_history_updates.dart';
 import '../../../services/review_request_service.dart';
+import '../../../services/case_message_service.dart';
 import '../doctors/verified_doctor_screens.dart';
+import '../messages/case_chat_screen.dart';
 import '../../widgets/common/app_components.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -149,7 +151,9 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
   Map<String, dynamic>? doctorFeedback;
   String? reviewError;
   String? preferredDoctorName;
+  CaseConversation? conversation;
   final reviewService = ReviewRequestService();
+  final messageService = CaseMessageService();
   late final ScreeningHistoryRepository repository =
       widget.repository ?? ScreeningHistoryApiRepository();
   late final Future<Uint8List?> image = _load(widget.result.imagePath);
@@ -182,6 +186,18 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
           break;
         }
       }
+      try {
+        final conversations = await messageService.conversations();
+        if (!mounted) return;
+        for (final item in conversations) {
+          if (item.screeningId == widget.result.id) {
+            setState(() => conversation = item);
+            break;
+          }
+        }
+      } on CaseMessageException {
+        // Review status remains available while messaging is offline.
+      }
     } catch (_) {
       if (mounted)
         setState(() => reviewError = 'Review status is unavailable.');
@@ -189,15 +205,24 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
   }
 
   Future<void> _requestReview() async {
-    final doctor = await Navigator.push<Map<String, dynamic>>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => Scaffold(
-          appBar: AppBar(title: const Text('Choose a Doctor')),
-          body: const VerifiedDoctorDirectory(selecting: true),
+    Map<String, dynamic>? doctor;
+    if (reviewRequest?.status == 'pending_assignment' &&
+        reviewRequest?.preferredDoctorDirectoryId != null) {
+      doctor = {
+        'directory_id': reviewRequest!.preferredDoctorDirectoryId,
+        'display_name': preferredDoctorName ?? 'Selected Doctor',
+      };
+    } else {
+      doctor = await Navigator.push<Map<String, dynamic>>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: const Text('Choose a Doctor')),
+            body: const VerifiedDoctorDirectory(selecting: true),
+          ),
         ),
-      ),
-    );
+      );
+    }
     if (doctor == null || !mounted) return;
     final directoryId = doctor['directory_id'] as String?;
     if (directoryId == null) return;
@@ -205,9 +230,9 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
     final consented = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Request Doctor review?'),
+        title: const Text('Assign this Doctor?'),
         content: Text(
-          'Preferred Doctor: $doctorName. Your saved oral image, AI screening result, and visual explanation may be shared after an authorized assignment. Choosing a Doctor does not assign the case immediately.',
+          '$doctorName will immediately receive access to this saved oral image, AI screening result, and visual explanation. You can message the Doctor about this case. Only choose this if you consent to share the case.',
         ),
         actions: [
           TextButton(
@@ -215,7 +240,7 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
               child: const Text('Cancel')),
           FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('I consent and request review')),
+              child: const Text('Consent and assign')),
         ],
       ),
     );
@@ -230,6 +255,7 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
           preferredDoctorName = doctorName;
           reviewError = null;
         });
+      await _loadReviewStatus();
     } on ReviewRequestException catch (error) {
       if (mounted) setState(() => reviewError = error.message);
     } catch (_) {
@@ -248,6 +274,7 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
   @override
   void dispose() {
     reviewService.close();
+    messageService.close();
     if (widget.repository == null) repository.close();
     super.dispose();
   }
@@ -356,21 +383,23 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
             _SavedData(
                 label: 'Doctor review',
                 value: switch (reviewRequest!.status) {
-                  'pending_assignment' => 'Pending assignment',
+                  'pending_assignment' => 'Waiting for assignment',
+                  'assigned' => 'Assigned to Doctor',
                   'in_review' => 'In review',
                   'reviewed' => 'Reviewed',
                   final status => status,
-                })
-          else
+                }),
+          if (reviewRequest == null ||
+              reviewRequest!.status == 'pending_assignment')
             OutlinedButton.icon(
               onPressed: requestingReview ? null : _requestReview,
               icon: const Icon(Icons.rate_review_outlined),
               label: Text(requestingReview
-                  ? 'Requesting review…'
-                  : 'Request Doctor review'),
+                  ? 'Assigning Doctor…'
+                  : 'Assign a verified Doctor'),
             ),
           if (reviewRequest != null && preferredDoctorName != null)
-            _SavedData(label: 'Preferred Doctor', value: preferredDoctorName!),
+            _SavedData(label: 'Selected Doctor', value: preferredDoctorName!),
           if (reviewError != null)
             Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -414,17 +443,29 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Consultation / Chat with Doctor',
+                Text('Private case messages',
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
-                Text(doctorFeedback == null
-                    ? 'Chat is not available. First request a review of this saved screening and wait for professional feedback.'
-                    : 'A Doctor review does not automatically open a conversation. Private chat requests and messaging are planned for a later release.'),
+                Text(conversation == null
+                    ? 'Assign this screening to a verified Doctor to open a private conversation.'
+                    : conversation!.isActive
+                        ? 'Only you and the assigned verified Doctor can exchange case messages. This is not an emergency service.'
+                        : 'This assignment is closed. You can read your earlier messages.'),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
-                  onPressed: null,
-                  icon: const Icon(Icons.lock_outline),
-                  label: const Text('Request chat · Coming Soon'),
+                  onPressed: conversation == null
+                      ? null
+                      : () => Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => CaseThreadScreen(
+                                conversation: conversation!,
+                                isDoctor: false,
+                              ),
+                            ),
+                          ),
+                  icon: const Icon(Icons.chat_bubble_outline),
+                  label: const Text('Open messages'),
                 ),
               ],
             ),

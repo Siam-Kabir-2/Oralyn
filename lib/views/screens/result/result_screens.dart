@@ -94,7 +94,31 @@ class _ResultScreenState extends State<ResultScreen> {
         const SnackBar(
             content: Text('The saved result could not be verified.')),
       );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        saving = false;
+        saveError =
+            'Could not save this screening. Check your connection and retry.';
+      });
     }
+  }
+
+  Future<void> _openDoctorReview() async {
+    if (saving) return;
+    if (!saved) await _save();
+    if (!mounted) return;
+    final record = savedRecord;
+    if (record == null) {
+      setState(() => saveError ??=
+          'This screening must be saved before it can be shared with a Doctor.');
+      return;
+    }
+    await Navigator.pushNamed(
+      context,
+      AppRoutes.historyDetail,
+      arguments: record,
+    );
   }
 
   @override
@@ -110,16 +134,6 @@ class _ResultScreenState extends State<ResultScreen> {
           icon: const Icon(Icons.arrow_back_rounded),
           tooltip: 'Back',
         ),
-        actions: [
-          IconButton(
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Sharing is not available yet.')),
-            ),
-            icon: const Icon(Icons.ios_share_rounded),
-            tooltip: 'Share result',
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: SafeArea(
         child: ListView(
@@ -163,15 +177,17 @@ class _ResultScreenState extends State<ResultScreen> {
               child: const Text('Explore care locations (demo)'),
             ),
             const SizedBox(height: 10),
-            if (savedRecord != null) ...[
+            if (widget.outcome.photo != null || savedRecord != null) ...[
               OutlinedButton.icon(
-                onPressed: () => Navigator.pushNamed(
-                  context,
-                  AppRoutes.historyDetail,
-                  arguments: savedRecord,
-                ),
-                icon: const Icon(Icons.rate_review_outlined),
-                label: const Text('Request Doctor review'),
+                onPressed: saving ? null : _openDoctorReview,
+                icon: saving
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.rate_review_outlined),
+                label: Text(saving
+                    ? 'Preparing private record…'
+                    : 'Send to a verified Doctor'),
               ),
               const SizedBox(height: 10),
             ],

@@ -61,10 +61,10 @@ class ProfileScreen extends StatelessWidget {
             items: [
               _ProfileItem(
                 Icons.person_outline,
-                'Personal information',
+                'Account details',
                 () => _message(
                   context,
-                  'Personal information is read-only in this prototype.',
+                  'Your name and email are managed through your Clerk account.',
                 ),
               ),
               _ProfileItem(
@@ -82,19 +82,6 @@ class ProfileScreen extends StatelessWidget {
                 'Screening server',
                 () => Navigator.pushNamed(context, AppRoutes.apiSettings),
               ),
-              _ProfileItem(
-                Icons.notifications_none_rounded,
-                'Notifications',
-                () => _message(
-                  context,
-                  'Notification preferences updated locally.',
-                ),
-              ),
-              _ProfileItem(
-                Icons.language_rounded,
-                'Language',
-                () => _message(context, 'English is selected.'),
-              ),
             ],
           ),
           _ProfileSection(
@@ -107,9 +94,8 @@ class ProfileScreen extends StatelessWidget {
               ),
               _ProfileItem(
                 Icons.delete_outline_rounded,
-                'Delete screening history',
-                () => _deleteDialog(context),
-                danger: true,
+                'Manage screening history',
+                () => Navigator.pushNamed(context, AppRoutes.history),
               ),
             ],
           ),
@@ -128,11 +114,8 @@ class ProfileScreen extends StatelessWidget {
               ),
               _ProfileItem(
                 Icons.help_outline_rounded,
-                'Help',
-                () => _message(
-                  context,
-                  'Help content is available in the screening guidance.',
-                ),
+                'Screening guidance',
+                () => Navigator.pushNamed(context, AppRoutes.education),
               ),
             ],
           ),
@@ -163,30 +146,6 @@ class ProfileScreen extends StatelessWidget {
 
   static void _message(BuildContext context, String text) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-
-  static void _deleteDialog(BuildContext context) => showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Delete screening history?'),
-          content: const Text(
-            'This prototype will simulate deletion without changing the bundled mock records.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                _message(context, 'Screening history deletion simulated.');
-              },
-              style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-              child: const Text('Delete'),
-            ),
-          ],
-        ),
-      );
 }
 
 class _ProfileSection extends StatelessWidget {
@@ -221,17 +180,13 @@ class _ProfileSection extends StatelessWidget {
                         onTap: entry.value.onTap,
                         leading: Icon(
                           entry.value.icon,
-                          color: entry.value.danger
-                              ? AppColors.danger
-                              : AppColors.ink,
+                          color: AppColors.ink,
                           size: 21,
                         ),
                         title: Text(
                           entry.value.label,
-                          style: TextStyle(
-                            color: entry.value.danger
-                                ? AppColors.danger
-                                : AppColors.text,
+                          style: const TextStyle(
+                            color: AppColors.text,
                             fontSize: 14.5,
                           ),
                         ),
@@ -254,11 +209,10 @@ class _ProfileSection extends StatelessWidget {
 }
 
 class _ProfileItem {
-  const _ProfileItem(this.icon, this.label, this.onTap, {this.danger = false});
+  const _ProfileItem(this.icon, this.label, this.onTap);
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  final bool danger;
 }
 
 class PrivacyScreen extends StatelessWidget {
@@ -291,9 +245,14 @@ class PrivacyScreen extends StatelessWidget {
               body: 'Nearby facilities and distances use fictional mock data.',
             ),
             const _Policy(
-              title: 'Local history',
+              title: 'Private screening history',
               body:
-                  'Screening history is bundled demonstration data and resets with the app.',
+                  'Screenings save automatically by default to private server storage. You can turn saving off before a screening. Eligible records can be deleted from History; cases shared for Doctor review are retained until a formal retention rule is set.',
+            ),
+            const _Policy(
+              title: 'Doctor sharing and messages',
+              body:
+                  'Choosing a verified Doctor shares that saved case after your explicit consent. Only the assigned verified Doctor can access the case and its private messages. Assignment revocation ends Doctor access.',
             ),
           ],
         ),
@@ -359,7 +318,7 @@ class AboutScreen extends StatelessWidget {
             ),
             const SizedBox(height: 30),
             Text(
-              'Oralyn is a smartphone-based UI prototype for preliminary oral lesion screening guidance, explainable results, referral support, and nearby care discovery.',
+              'Oralyn provides AI-assisted oral image screening guidance, private history, and verified Doctor case review. Screening output does not replace an in-person clinical examination.',
               style: Theme.of(context)
                   .textTheme
                   .bodyLarge
@@ -383,18 +342,10 @@ class AboutScreen extends StatelessWidget {
                   Text(AppConstants.disclaimer, style: TextStyle(height: 1.5)),
                   SizedBox(height: 8),
                   Text(
-                    'Do not use this prototype for emergencies, diagnosis, or treatment decisions.',
+                    'Do not use this service for emergencies, diagnosis, or treatment decisions.',
                     style: TextStyle(height: 1.5),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 22),
-            const Center(
-              child: Text(
-                'Prototype version 1.1.2',
-                style:
-                    TextStyle(color: AppColors.secondaryText, fontSize: 12.5),
               ),
             ),
           ],

@@ -21,9 +21,8 @@ Target only Supabase project `arokswvcjddbzwthtqkh`, which its owner has
 identified as development-only with synthetic, disposable records. Its
 Dashboard labels the `main` branch **PRODUCTION**. The Free plan has no
 scheduled database backup. A committed migration has no automatic rollback.
-Confirm the project reference and take an appropriate project backup or accept
-the disposable-data risk before applying anything. These two migrations require
-separate owner approval; approval for earlier migrations does not cover them.
+The owner approved these two migrations for this exact development project and
+accepted its disposable-data context. No scheduled backup was available.
 
 Dependencies: Phase 3B screening persistence, Phase 3C authorization, Doctor
 onboarding, and the 2026-11-16 Doctor preference migration. Apply these files
@@ -41,9 +40,9 @@ private message table and three guarded, signed-in-only RPCs. A Patient can
 read their earlier messages after revocation; the Doctor immediately loses
 access. Neither client nor server uses a client-supplied role to grant access.
 
-After applying both migrations, run these rollback-only pgTAP files in fresh
-SQL Editor queries, one at a time. Each uses `finish(true)` and ends in
-`rollback;`; stop at the first error:
+Both migrations were applied in order on 2026-11-17. The following
+rollback-only pgTAP files ran separately and passed. Each uses `finish(true)`
+and ends in `rollback;`:
 
 1. `supabase/tests/patient_assignment_checks.sql` — 15 assertions
 2. `supabase/tests/case_messages_checks.sql` — 20 assertions
@@ -65,10 +64,14 @@ select
     as synthetic_test_profiles_left;
 ```
 
-Expected: three `true` values and zero test profiles. The rollback-only tests
-must not leave case or message rows either. Re-run Supabase security and
-performance advisors after migration. Existing advisor findings about other
-SECURITY DEFINER RPCs and RLS performance should be reviewed separately.
+Observed: three `true` values and zero test profiles, screenings, and messages
+from the new fixtures. The message table has RLS enabled and authenticated
+clients cannot SELECT it directly. The Supabase security advisor reported two
+intentional RLS-without-policy notices for private message and audit tables,
+plus 11 signed-in SECURITY DEFINER RPC warnings, including the guarded new
+RPCs. The performance advisor reported three unindexed foreign keys, seven
+RLS initplan warnings, and five multiple-policy warnings. The health advisor
+reported no findings. These advisories need separate review before production.
 
 ## Application flow
 
@@ -98,8 +101,8 @@ Doctor loses access. Do not paste bearer tokens into reports.
 Local backend suite: 42 tests passed with mocked model inference. Flutter
 suite: 51 tests passed. Flutter static analysis reported no issues on the
 final code. The release APK built, and the existing real-checkpoint smoke
-test passed using synthetic input. The 15 and 20 new SQL
-assertions have **not** run against the remote database yet. The Android
+test passed using synthetic input. The five SQL suites passed all 88
+assertions on the approved development project. The Android
 Patient-to-Doctor-to-messaging flow has **not** been observed end to end on a
 device. These features must not be described as production-ready until that
 work, operational controls, and clinical review are complete.

@@ -25,14 +25,13 @@ until the server confirms a verified Doctor role. Saved History refreshes
 without reopening the app. Sign-out returns to the Patient/Doctor/Admin
 choice screen.
 
-The Doctor preference migration was applied to this development project and
-its 14 rollback-only assertions passed. The current local code defaults to
-automatic private saving and offers immediate, consented assignment to a
-verified Doctor plus private case messages. Those features require **two new
-migrations** that have not yet been applied or tested remotely. See
-[the rollout notes](CASE_MESSAGING_AND_ASSIGNMENT.md) and do not run the new
-migrations without their separate approval. The older Phase 3C, Doctor
-onboarding, and Doctor preference migrations must not be rerun.
+The Doctor preference, Patient assignment, and case messaging migrations were
+applied to this development project. On 2026-11-17, all 88 rollback-only SQL
+assertions passed. The current local code defaults to automatic private saving
+and offers immediate, consented assignment to a verified Doctor plus private
+case messages. See [the rollout notes](CASE_MESSAGING_AND_ASSIGNMENT.md).
+Do not rerun any of the applied migrations. The full Android workflow still
+needs manual verification.
 
 ### Live Phase 3C verification record
 
@@ -493,8 +492,8 @@ section 1. Do not describe it as passed until its pgtap output is visible.
 ## Final manual checklist
 
 1. Confirm the selected Supabase project is development.
-2. Confirm Phase 3C, Doctor onboarding, and Doctor preference migrations are already applied; do not rerun them. Apply the two newer migrations only after their separate approval.
-3. Run the 15 assignment and 20 messaging assertions after the new migrations, then rerun the existing 14 preference, 26 Phase 3C, and 13 onboarding assertions. Record actual outcomes.
+2. Confirm Phase 3C, Doctor onboarding, Doctor preference, Patient assignment, and case messaging migrations are already applied to the specified development project; do not rerun them.
+3. The 15 assignment, 20 messaging, 14 preference, 26 Phase 3C, and 13 onboarding assertions passed on 2026-11-17. Rerun the rollback-only suites only if another check is needed.
 4. Run the prerequisite checker and confirm every item is `OK`.
 5. Start FastAPI and keep the Quick Tunnel window open.
 6. Configure Android, connect the phone and run Oralyn with the tunnel URL.

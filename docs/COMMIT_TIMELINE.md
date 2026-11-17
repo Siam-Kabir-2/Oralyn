@@ -64,3 +64,22 @@ Week numbers start on 2026-09-10. Commit counts by week: week 1: 6, week 2: 3, w
 | 2026-11-12 | `bda785a` | `4053ab4` | docs(testing): record live Phase 3C verification |
 | 2026-11-12 | `fe98a4b` | `bd10a1f` | chore(release): version Phase 4 Android build |
 
+## Doctor assignment and messaging continuation
+
+The branch work immediately before this block ended with `708026b` on
+2026-11-16 at 06:25 (Bangladesh time). At the owner's request, the first two
+commits below use reconstructed author dates later that day to show the
+continuous work sequence. Those are presentation dates, not verified source
+creation times. All six original committer dates were preserved, as were the
+commit order, messages, and file trees. The original branch tip remains in the
+local backup ref `backup/doctor-onboarding-before-date-rewrite-20261117`.
+
+| Reconstructed author date (UTC+06) | New commit | Original commit | Message |
+| --- | --- | --- | --- |
+| 2026-11-16 21:00 | `d2ead86` | `eeb738f` | feat(db): add consented case assignment and private messaging |
+| 2026-11-16 23:30 | `c8d1353` | `0b0254b` | feat(api): expose authenticated case conversations |
+| 2026-11-17 04:57 | `b7f64ca` | `735e412` | feat(app): refine screening handoff and Doctor workspace |
+| 2026-11-17 04:57 | `24bf732` | `eba478b` | docs: update assignment rollout and manual verification |
+| 2026-11-17 05:00 | `bdf23a3` | `b830f6e` | docs: record final local verification results |
+| 2026-11-17 13:34 | `bc3598d` | `d59f7d9` | docs: record development migration and SQL verification |
+

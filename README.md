@@ -78,6 +78,12 @@ Pop-Location
 
 The backend tests use synthetic images and mocked inference. The checkpoint smoke test needs the private model files. The database pgtap suite is in `supabase/tests/`; run it only against an authorized development project. On 2026-11-17, development project `arokswvcjddbzwthtqkh` passed all 88 rollback-only assertions: 15 assignment, 20 messaging, 14 Doctor preference, 26 Phase 3C, and 13 Doctor onboarding. The full Android Patient-to-Doctor workflow still requires manual verification. See [the assignment and messaging release notes](docs/CASE_MESSAGING_AND_ASSIGNMENT.md).
 
-Build an Android APK with `flutter build apk --release`; Flutter writes it to `build/app/outputs/flutter-apk/app-release.apk`. The current development release uses an Android debug signing certificate and is not suitable for production distribution.
+Build and verify an Android APK with the guarded script:
+
+```powershell
+.\scripts\Build-Oralyn-Apk.ps1 -BuildRoot O:\ -NoPub
+```
+
+On another workstation, omit `-BuildRoot O:\` if the repository path works with Flutter and omit `-NoPub` until dependencies have been fetched. The script builds with the complete Material Icons font and rejects an APK missing `flutter_assets` or its font. It writes `build/app/outputs/flutter-apk/app-release.apk`. The current development release uses an Android debug signing certificate and is not suitable for production distribution.
 
 For architecture and security context, see [the design](docs/ARCHITECTURE_DESIGN.md), [backend report](docs/PHASE2_BACKEND.md), and [manual testing guide](docs/PHASE4_MANUAL_TESTING.md).

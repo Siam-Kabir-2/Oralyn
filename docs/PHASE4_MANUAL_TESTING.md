@@ -488,6 +488,7 @@ section 1. Do not describe it as passed until its pgtap output is visible.
 | Flutter sees no Android device | Install/configure the Android SDK, enable USB debugging, accept the RSA prompt and rerun `flutter devices`. |
 | Images do not load after revocation | This is expected. Current assignment and verification are checked for each new metadata/Storage request. |
 | Tunnel restarted | Copy the new HTTPS origin into **Screening server** for each app installation; do not append `/docs`. |
+| Navigation icons appear as unrelated characters or crossed boxes | The APK was packaged without Flutter font assets. Rebuild with `scripts/Build-Oralyn-Apk.ps1`; its verification must report the Material Icons font before installing the new APK. |
 
 ## Final manual checklist
 

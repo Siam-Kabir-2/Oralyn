@@ -16,6 +16,7 @@ class Settings:
     clerk_issuer: str = ""
     clerk_authorized_parties: tuple[str, ...] = ()
     clerk_audience: str | None = None
+    clerk_secret_key: str = ""
     supabase_url: str = ""
     supabase_publishable_key: str = ""
     supabase_secret_key: str = ""
@@ -45,6 +46,7 @@ class Settings:
                 if party.strip()
             ),
             clerk_audience=os.getenv("CLERK_AUDIENCE") or None,
+            clerk_secret_key=os.getenv("CLERK_SECRET_KEY", ""),
             supabase_url=os.getenv("SUPABASE_URL", "").rstrip("/"),
             supabase_publishable_key=os.getenv(
                 "SUPABASE_PUBLISHABLE_KEY", ""

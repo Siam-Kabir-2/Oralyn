@@ -1,5 +1,6 @@
 """Patient review consent and assigned case discovery."""
 
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -7,9 +8,11 @@ from pydantic import BaseModel, Field
 
 from app.core.auth import AuthenticatedUser, authenticated_user
 from app.persistence.supabase import PersistenceConflict, PersistenceUnavailable
+from app.services.clerk_profile import ClerkProfileUnavailable
 
 
 router = APIRouter(tags=["case-management"])
+logger = logging.getLogger(__name__)
 
 
 class ReviewConsent(BaseModel):
@@ -45,9 +48,23 @@ async def get_my_profile(
 ):
     repository = _repository(request)
     try:
-        return await repository.identity_profile(
+        profile = await repository.identity_profile(
             request.state.session_token, identity.user_id
         )
+        factory = request.app.state.clerk_profile_factory
+        if profile.get("application_role") == "patient" and factory is not None:
+            try:
+                clerk = factory()
+                try:
+                    fields = await clerk.patient_identity(identity.user_id)
+                    await repository.sync_patient_profile(identity.user_id, fields)
+                finally:
+                    await clerk.close()
+            except (ClerkProfileUnavailable, PersistenceUnavailable):
+                # Profile synchronization is best effort. Authentication and
+                # screening must keep working if Clerk's API is unavailable.
+                logger.warning("patient_profile_sync_unavailable")
+        return profile
     except PersistenceUnavailable:
         raise _unavailable() from None
     finally:

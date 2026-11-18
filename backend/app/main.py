@@ -18,6 +18,7 @@ from app.core.config import Settings
 from app.core.auth import ClerkTokenVerifier
 from app.services.screening import ScreeningService
 from app.persistence.supabase import SupabaseRepository
+from app.services.clerk_profile import ClerkProfileClient
 
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 def create_app(
     settings: Settings | None = None, screening_service=None, token_verifier=None,
-    history_repository_factory=None,
+    history_repository_factory=None, clerk_profile_factory=None,
 ) -> FastAPI:
     settings = settings or Settings.from_environment()
 
@@ -60,6 +61,11 @@ def create_app(
             if settings.persistence_configured
             else None
         )
+    )
+    application.state.clerk_profile_factory = (
+        clerk_profile_factory if clerk_profile_factory is not None
+        else ((lambda: ClerkProfileClient(settings.clerk_secret_key))
+              if settings.clerk_secret_key else None)
     )
     application.add_middleware(
         CORSMiddleware,

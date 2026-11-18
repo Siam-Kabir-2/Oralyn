@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import quote, urlparse
 
@@ -97,6 +98,45 @@ class SupabaseRepository:
         if response.status_code != 200 or not response.json():
             raise PersistenceUnavailable("Could not load profile")
         return response.json()[0]
+
+    async def sync_patient_profile(self, user_id: str, identity: dict) -> None:
+        """Store only fields fetched server-side from the matching Clerk user."""
+        response = await self._request(
+            "POST", f"{self.url}/rest/v1/patient_profiles",
+            headers={**self._admin_headers(),
+                     "content-type": "application/json",
+                     "prefer": "resolution=merge-duplicates,return=minimal"},
+            params={"on_conflict": "clerk_user_id"},
+            json={"clerk_user_id": user_id,
+                  "display_name": identity["display_name"],
+                  "verified_email": identity["verified_email"],
+                  "clerk_created_at": identity["clerk_created_at"],
+                  "synced_at": datetime.now(timezone.utc).isoformat()},
+        )
+        if response.status_code not in (200, 201, 204):
+            raise PersistenceUnavailable("Could not sync Patient profile")
+
+    async def patient_ids_for_sync(self, *, limit: int, offset: int) -> list[str]:
+        """Trusted local backfill input; never exposed by a mobile endpoint."""
+        response = await self._request(
+            "GET", f"{self.url}/rest/v1/profiles",
+            headers=self._admin_headers(),
+            params={"select": "clerk_user_id",
+                    "application_role": "eq.patient",
+                    "order": "clerk_user_id.asc",
+                    "limit": str(limit), "offset": str(offset)},
+        )
+        if response.status_code != 200:
+            raise PersistenceUnavailable("Could not list Patient IDs for sync")
+        try:
+            rows = response.json()
+            if not isinstance(rows, list) or any(
+                not isinstance(row.get("clerk_user_id"), str) for row in rows
+            ):
+                raise ValueError("Invalid Patient ID list")
+            return [row["clerk_user_id"] for row in rows]
+        except (ValueError, TypeError):
+            raise PersistenceUnavailable("Invalid Patient ID list") from None
 
     async def apply_doctor_candidate(self, user_id: str, data: dict[str, str]) -> None:
         response = await self._request(

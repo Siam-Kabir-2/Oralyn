@@ -33,6 +33,15 @@ case messages. See [the rollout notes](CASE_MESSAGING_AND_ASSIGNMENT.md).
 Do not rerun any of the applied migrations. The full Android workflow still
 needs manual verification.
 
+### Android icon check (2026-11-19)
+
+An earlier APK omitted all Flutter assets and displayed unreadable fallback
+glyphs in place of Material icons. Version `1.6.1+10` was rebuilt with the
+complete icon font; the APK inspection found 341 Flutter assets and a
+1,645,184-byte Material Icons font. The project owner installed this build on
+Android and reported that the icons now look normal. This confirms the icon
+repair on that device only. The Patient-to-Doctor workflow remains unverified.
+
 ### Live Phase 3C verification record
 
 - The transaction-wrapped migration completed with `Success. No rows returned`.

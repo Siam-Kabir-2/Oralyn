@@ -284,38 +284,34 @@ class _DoctorDetailsFormState extends State<DoctorDetailsForm> {
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           for (final field in controllers.keys) ...[
-            if (field == 'display_name' ||
-                field == 'registration_reference' ||
-                field == 'workplace') ...[
-              if (field != 'display_name') const SizedBox(height: 10),
-              Text(
-                switch (field) {
-                  'display_name' => 'Identity',
-                  'registration_reference' => 'Professional credentials',
-                  _ => 'Current workplace',
-                },
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 10),
-            ],
             TextFormField(
               controller: controllers[field],
               textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(
+                  isDense: true,
+                  counterText: '',
+                  prefixIcon: Icon(switch (field) {
+                    'display_name' => Icons.person_outline_rounded,
+                    'registration_reference' => Icons.badge_outlined,
+                    'qualification' => Icons.school_outlined,
+                    'specialization' => Icons.medical_services_outlined,
+                    _ => Icons.business_outlined,
+                  }),
                   labelText: switch (field) {
-                'display_name' => 'Full name',
-                'registration_reference' => 'Professional registration number',
-                'qualification' => 'Qualification',
-                'specialization' => 'Specialization',
-                _ => 'Workplace / institution',
-              }),
+                    'display_name' => 'Full name',
+                    'registration_reference' =>
+                      'Professional registration number',
+                    'qualification' => 'Qualification',
+                    'specialization' => 'Specialization',
+                    _ => 'Workplace / institution',
+                  }),
               validator: (value) => (value ?? '').trim().length <
                       (field == 'registration_reference' ? 3 : 2)
                   ? 'Enter a valid value'
                   : null,
               maxLength: 160,
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 12),
           ],
           if (widget.error != null)
             Text(widget.error!,
@@ -356,6 +352,6 @@ class DoctorMessagesScreen extends StatelessWidget {
         isDoctor: true,
         embedded: embedded,
         onOpen: onOpen,
-    service: service,
+        service: service,
       );
 }

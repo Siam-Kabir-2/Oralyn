@@ -5,6 +5,48 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../services/case_message_service.dart';
 
+void _showConversationInfo(BuildContext context, {String? caseCode}) {
+  showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (sheetContext) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Row(children: [
+            const Icon(Icons.lock_outline_rounded, color: AppColors.teal),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                  caseCode == null ? 'Private messages' : 'Case $caseCode',
+                  style: Theme.of(context).textTheme.titleLarge),
+            ),
+            IconButton(
+              onPressed: () => Navigator.pop(sheetContext),
+              tooltip: 'Close details',
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          const ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.verified_user_outlined, color: AppColors.teal),
+            title: Text('Assigned case only'),
+            subtitle: Text(
+                'Only the Patient and assigned verified Doctor can read these messages.'),
+          ),
+          const ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.schedule_outlined, color: AppColors.teal),
+            title: Text('Not continuously monitored'),
+            subtitle: Text('For urgent symptoms, seek in-person care.'),
+          ),
+        ]),
+      ),
+    ),
+  );
+}
+
 class CaseConversationsScreen extends StatefulWidget {
   const CaseConversationsScreen({
     super.key,
@@ -71,26 +113,30 @@ class _CaseConversationsScreenState extends State<CaseConversationsScreen> {
             },
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
               children: [
-                Text('CASE MESSAGING',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.teal,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.5)),
-                const SizedBox(height: 6),
-                Text(widget.isDoctor ? 'Patient conversations' : 'Messages',
-                    style: Theme.of(context).textTheme.headlineMedium),
-                const SizedBox(height: 7),
+                Row(children: [
+                  Expanded(
+                    child: Text(
+                        widget.isDoctor ? 'Patient conversations' : 'Messages',
+                        style: Theme.of(context).textTheme.headlineMedium),
+                  ),
+                  IconButton(
+                    onPressed: () => _showConversationInfo(context),
+                    icon: const Icon(Icons.info_outline_rounded),
+                    tooltip: 'Message details',
+                  ),
+                ]),
                 const Text(
-                  'Private messages are linked to an assigned case. This is not an emergency service.',
-                  style: TextStyle(color: AppColors.secondaryText),
+                  'Private case messages · not an emergency service',
+                  style:
+                      TextStyle(color: AppColors.secondaryText, fontSize: 12.5),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 16),
                 if (rows.isEmpty)
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 32, 24, 34),
+                      padding: const EdgeInsets.fromLTRB(22, 26, 22, 28),
                       child: Column(children: [
                         const Icon(Icons.forum_outlined,
                             color: AppColors.teal, size: 40),
@@ -131,7 +177,7 @@ class _CaseConversationsScreenState extends State<CaseConversationsScreen> {
                       }
                     },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                 ],
               ],
             ),
@@ -168,11 +214,11 @@ class _ConversationCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(17),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           child: Row(children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 42,
+              height: 42,
               decoration: BoxDecoration(
                 color: AppColors.successSoft,
                 borderRadius: BorderRadius.circular(16),
@@ -183,7 +229,7 @@ class _ConversationCard extends StatelessWidget {
                       : Icons.medical_services_outlined,
                   color: AppColors.teal),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -199,8 +245,8 @@ class _ConversationCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: AppColors.secondaryText)),
-                  const SizedBox(height: 7),
-                  Text(conversation.isActive ? 'Active case' : 'Closed access',
+                  const SizedBox(height: 4),
+                  Text(conversation.isActive ? 'Active' : 'Closed',
                       style: TextStyle(
                           color: conversation.isActive
                               ? AppColors.teal
@@ -386,19 +432,14 @@ class _CaseThreadScreenState extends State<CaseThreadScreen> {
       child: Column(children: [
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
           color: AppColors.surface,
           child: Row(children: [
-            if (widget.onBack != null)
-              IconButton(
-                  onPressed: widget.onBack,
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  tooltip: 'Back to conversations'),
             const CircleAvatar(
               backgroundColor: AppColors.successSoft,
               child: Icon(Icons.shield_outlined, color: AppColors.teal),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
                 child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -419,6 +460,11 @@ class _CaseThreadScreenState extends State<CaseThreadScreen> {
                 onPressed: _refresh,
                 icon: const Icon(Icons.refresh_rounded),
                 tooltip: 'Refresh messages'),
+            IconButton(
+                onPressed: () =>
+                    _showConversationInfo(context, caseCode: shortCase),
+                icon: const Icon(Icons.info_outline_rounded),
+                tooltip: 'Case message details'),
           ]),
         ),
         Expanded(
@@ -429,7 +475,7 @@ class _CaseThreadScreenState extends State<CaseThreadScreen> {
                   child: ListView(
                     controller: scroll,
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
                     children: [
                       if (hasEarlier)
                         Center(
@@ -468,43 +514,36 @@ class _CaseThreadScreenState extends State<CaseThreadScreen> {
                 Text(error!, style: const TextStyle(color: AppColors.danger)),
           ),
         Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
           decoration: const BoxDecoration(
             color: AppColors.surface,
             border: Border(top: BorderSide(color: AppColors.divider)),
           ),
-          child: Column(children: [
-            Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Expanded(
-                  child: TextField(
-                controller: composer,
-                enabled: active && !sending,
-                minLines: 1,
-                maxLines: 4,
-                maxLength: 2000,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: InputDecoration(
-                  hintText:
-                      active ? 'Write a case message' : 'Messaging closed',
-                  counterText: '',
-                ),
-              )),
-              const SizedBox(width: 10),
-              IconButton.filled(
-                onPressed: active && !sending ? _send : null,
-                icon: sending
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.arrow_upward_rounded),
-                tooltip: 'Send message',
+          child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Expanded(
+                child: TextField(
+              controller: composer,
+              enabled: active && !sending,
+              minLines: 1,
+              maxLines: 4,
+              maxLength: 2000,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                hintText: active ? 'Write a case message' : 'Messaging closed',
+                counterText: '',
+                isDense: true,
               ),
-            ]),
-            const SizedBox(height: 6),
-            const Text(
-                'For urgent symptoms, seek in-person care. Messages are not monitored continuously.',
-                style:
-                    TextStyle(fontSize: 11.5, color: AppColors.secondaryText)),
+            )),
+            const SizedBox(width: 8),
+            IconButton.filled(
+              onPressed: active && !sending ? _send : null,
+              icon: sending
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.arrow_upward_rounded),
+              tooltip: 'Send message',
+            ),
           ]),
         ),
       ]),

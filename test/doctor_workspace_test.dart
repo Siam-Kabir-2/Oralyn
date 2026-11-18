@@ -194,7 +194,7 @@ void main() {
       ),
     ));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Cases'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Cases'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Case OR-SCREENIN'), findsOneWidget);
     expect(find.text('Assigned cases'), findsWidgets);

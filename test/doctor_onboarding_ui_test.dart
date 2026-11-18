@@ -34,4 +34,26 @@ void main() {
     expect(find.textContaining('Coming Soon'), findsNothing);
     service.close();
   });
+
+  testWidgets('Doctor can open and close message details', (tester) async {
+    final service = CaseMessageService(
+      client: MockClient((_) async => http.Response('{"items":[]}', 200)),
+      predictionEndpoint: Uri.parse('https://example.test/predict'),
+      tokenProvider: () async => 'synthetic-session',
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: DoctorMessagesScreen(service: service),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Message details'));
+    await tester.pumpAndSettle();
+    expect(
+        find.text(
+            'Only the Patient and assigned verified Doctor can read these messages.'),
+        findsOneWidget);
+    await tester.tap(find.byTooltip('Close details'));
+    await tester.pumpAndSettle();
+    expect(find.text('Assigned case only'), findsNothing);
+    service.close();
+  });
 }
